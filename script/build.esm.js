@@ -31,7 +31,7 @@ async function build(pkgPath) {
     external(id) {
       // 不打包deps的项目
       return deps.some(k => new RegExp("^" + k).test(id))
-        || /^@shared/.test(id) // 不打包packages的包
+        || /^@poyoho\/shared-/.test(id) // 不打包packages的包
     },
   })
   console.log(chalk.green(`${pkgPath} done`))
@@ -52,7 +52,7 @@ async function builddts(pkgPath) {
     external(id) {
       // 不打包deps的项目
       return deps.some(k => new RegExp("^" + k).test(id))
-        || /^@shared/.test(id) // 不打包packages的包
+        || /^@poyoho\/shared-/.test(id) // 不打包packages的包
     },
   })
   console.log(chalk.blueBright(`${pkgPath} dts done`))
@@ -64,10 +64,10 @@ async function builddts(pkgPath) {
 
 const inputs = getPackagesSync()
   .map(pkg => pkg.name)
-  .filter(name => name.includes('@shared'))
+  .filter(name => name.includes('@poyoho/shared-'))
 
 inputs.forEach(pkg => {
-  const name = pkg.split('@shared/')[1]
+  const name = pkg.split('@poyoho/shared-')[1]
   build(name)
   builddts(name)
 })

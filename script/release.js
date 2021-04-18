@@ -144,7 +144,7 @@ async function main () {
   const targetVersion = await choiseTargetVersion()
 
   step('\nBuilding all packages...')
-  await run('yarn', ['build', '--release'])
+  await run('yarn', ['build'])
 
   // update all package versions and inter-dependencies
   step('\nUpdating cross dependencies...')
