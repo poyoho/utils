@@ -1,0 +1,56 @@
+{
+  "name": "shared",
+  "version": "0.0.1",
+  "private": true,
+  "author": "poyoho",
+  "description": "A Library for shared",
+  "scripts": {
+    "vue": "cd playground/vue && yarn && yarn dev",
+    "react": "cd playground/react && yarn && yarn dev",
+    "bootstrap": "lerna bootstrap",
+    "lint": "eslint ./packages --ext .vue,.js,.ts",
+    "lint-fix": "eslint --fix ./packages --ext .vue,.js,.ts,.tsx",
+    "build": "rimraf dist && yarn build:esm && yarn build:esm-bundle",
+    "build:esm": "node script/build.esm.js",
+    "build:esm-bundle": "rollup --config script/build.bundle.js"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,vue,tsx,jsx}": "eslint --fix"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@commitlint/config-conventional": "^11.0.0",
+    "@typescript-eslint/eslint-plugin": "^3.10.1",
+    "@typescript-eslint/parser": "^3.10.1",
+    "chalk": "^4.1.0",
+    "eslint": "^7.7.0",
+    "eslint-plugin-vue": "^7.0.0-beta.0",
+    "lerna": "^3.22.1",
+    "rimraf": "^3.0.2",
+    "rollup": "^2.45.2",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-typescript2": "^0.30.0",
+    "typescript": "^4.1.2"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "files": [
+    "dist",
+    "packages"
+  ],
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not ie <= 8"
+  ]
+}

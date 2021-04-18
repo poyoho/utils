@@ -1,0 +1,15 @@
+{
+ "compilerOptions": {
+    "strictNullChecks": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "jsx": "preserve",
+    "noUnusedParameters": true,
+    "noUnusedLocals": true,
+    "target": "es5",
+    "lib": ["dom", "esnext"],
+    "skipLibCheck": true
+ },
+ "exclude": ["**/node_modules/**"]
+}

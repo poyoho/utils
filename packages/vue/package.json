@@ -1,0 +1,9 @@
+{
+  "name": "@shared/vue",
+  "version": "0.0.0",
+  "main": "index.ts",
+  "license": "MIT",
+  "devDependencies": {
+    "vue": "^3.0.4"
+  }
+}
