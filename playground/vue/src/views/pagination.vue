@@ -25,7 +25,7 @@
 </template>
 <script lang="ts">
 import { defineComponent, ref } from "vue"
-import { usePaginationSelect, usePaginationTable } from "@shared/vue"
+import { usePaginationSelect, usePaginationTable } from "@poyoho/shared-vue"
 import { request } from "../../../mock/requestData"
 
 interface Query {

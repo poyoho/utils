@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react"
-import { usePaginationTable, usePaginationSelect } from "@shared/react"
+import React, { useRef } from "react"
+import { usePaginationTable, usePaginationSelect } from "@poyoho/shared-react"
 import { Table, Input, Button } from "antd"
 import { request, columns } from "../../../../mock/requestData"
 
