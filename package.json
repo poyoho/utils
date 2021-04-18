@@ -1,8 +1,7 @@
 {
-  "name": "shared",
-  "version": "0.0.1",
   "private": true,
   "author": "poyoho",
+  "version": "0.0.2",
   "description": "A Library for shared",
   "scripts": {
     "vue": "cd playground/vue && yarn && yarn dev",
@@ -10,9 +9,8 @@
     "bootstrap": "lerna bootstrap",
     "lint": "eslint ./packages --ext .vue,.js,.ts",
     "lint-fix": "eslint --fix ./packages --ext .vue,.js,.ts,.tsx",
-    "build": "rimraf dist && yarn build:esm && yarn build:esm-bundle",
-    "build:esm": "node script/build.esm.js",
-    "build:esm-bundle": "rollup --config script/build.bundle.js"
+    "build": "node script/build.esm.js",
+    "release": "node script/release.js"
   },
   "husky": {
     "hooks": {
@@ -32,13 +30,17 @@
     "@typescript-eslint/eslint-plugin": "^3.10.1",
     "@typescript-eslint/parser": "^3.10.1",
     "chalk": "^4.1.0",
+    "enquirer": "^2.3.6",
     "eslint": "^7.7.0",
     "eslint-plugin-vue": "^7.0.0-beta.0",
     "lerna": "^3.22.1",
+    "minimist": "^1.2.5",
     "rimraf": "^3.0.2",
     "rollup": "^2.45.2",
+    "rollup-plugin-dts": "^3.0.1",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.30.0",
+    "semver": "^7.3.2",
     "typescript": "^4.1.2"
   },
   "workspaces": [

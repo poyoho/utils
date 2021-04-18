@@ -1,4 +1,4 @@
-import { PaginationParams } from '@shared/services'
+import { PaginationParams } from '@poyoho/shared-service'
 import { reactive, Ref, watch } from "vue"
 
 export function usePaginationTable<Query extends PaginationParams> (

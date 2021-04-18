@@ -1,4 +1,4 @@
-import { PaginationParams } from '@shared/services'
+import { PaginationParams } from '@poyoho/shared-service'
 import { useState, MutableRefObject, useRef, useMemo } from "react"
 
 export function usePaginationTable<Query extends PaginationParams, State> (

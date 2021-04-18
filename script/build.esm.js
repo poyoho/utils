@@ -3,13 +3,14 @@ const chalk = require("chalk")
 const rollup = require("rollup")
 const typescript = require("rollup-plugin-typescript2")
 const { terser } = require('rollup-plugin-terser')
-const pkg = require("../package.json")
+const dts = require("rollup-plugin-dts")
 const { getPackagesSync } = require("@lerna/project")
-const deps = Object.keys(pkg.dependencies || {});
 
 __dirname = path.join(__dirname, "..")
 
 async function build(pkgPath) {
+  const pkgs = require(path.resolve(__dirname, `packages/${pkgPath}/package.json`)).peerDependencies || {}
+  const deps = Object.keys(pkgs)
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/index.ts`),
     plugins: [
@@ -30,18 +31,34 @@ async function build(pkgPath) {
     external(id) {
       // 不打包deps的项目
       return deps.some(k => new RegExp("^" + k).test(id))
-      || /^@shared/.test(id) // 不打包packages的包
+        || /^@shared/.test(id) // 不打包packages的包
     },
   })
   console.log(chalk.green(`${pkgPath} done`))
   await esm.write({
     format: "es",
-    file: path.resolve(__dirname, `dist/${pkgPath}/index.js`),
-    paths(id) {
-      if (/^@shared/.test(id)) {
-        return id.replace('@shared/', '../')
-      }
-    }
+    file: path.resolve(__dirname, `packages/${pkgPath}/dist/index.js`),
+  })
+}
+
+async function builddts(pkgPath) {
+  const pkgs = require(path.resolve(__dirname, `packages/${pkgPath}/package.json`)).peerDependencies || {}
+  const deps = Object.keys(pkgs)
+  const esm = await rollup.rollup({
+    input: path.resolve(__dirname, `packages/${pkgPath}/index.ts`),
+    plugins: [
+      dts.default(),
+    ],
+    external(id) {
+      // 不打包deps的项目
+      return deps.some(k => new RegExp("^" + k).test(id))
+        || /^@shared/.test(id) // 不打包packages的包
+    },
+  })
+  console.log(chalk.blueBright(`${pkgPath} dts done`))
+  await esm.write({
+    file: path.resolve(__dirname, `packages/${pkgPath}/dist/index.d.ts`),
+    format: "es",
   })
 }
 
@@ -49,4 +66,8 @@ const inputs = getPackagesSync()
   .map(pkg => pkg.name)
   .filter(name => name.includes('@shared'))
 
-inputs.forEach(name => build(name.split('@shared/')[1]))
+inputs.forEach(pkg => {
+  const name = pkg.split('@shared/')[1]
+  build(name)
+  builddts(name)
+})

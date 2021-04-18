@@ -1,5 +1,5 @@
 import { reactive, onMounted, watch, Ref } from "vue"
-import { PaginationSelect, PaginationParams } from "@shared/services"
+import { PaginationSelect, PaginationParams } from "@poyoho/shared-service"
 
 interface Data<State> {
   loading: boolean

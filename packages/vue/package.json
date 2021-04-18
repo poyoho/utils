@@ -1,9 +1,20 @@
 {
-  "name": "@shared/vue",
-  "version": "0.0.0",
-  "main": "index.ts",
+  "name": "@poyoho/shared-vue",
   "license": "MIT",
+  "author": "poyoho",
+  "version": "0.0.2",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "devDependencies": {
     "vue": "^3.0.4"
+  },
+  "peerDependencies": {
+    "vue": "^3.0.4"
+  },
+  "dependencies": {
+    "@poyoho/shared-service": "0.0.2"
   }
 }

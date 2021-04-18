@@ -1,0 +1,11 @@
+{
+  "name": "@poyoho/shared-service",
+  "files": [
+    "dist"
+  ],
+  "version": "0.0.2",
+  "author": "poyoho",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT"
+}

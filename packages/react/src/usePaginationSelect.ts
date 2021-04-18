@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, MutableRefObject } from "react"
-import { PaginationSelect, PaginationParams } from "@shared/services"
+import { PaginationSelect, PaginationParams } from "@poyoho/shared-service"
 
 interface Data<State> {
   loading: boolean
