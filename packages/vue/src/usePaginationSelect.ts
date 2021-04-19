@@ -27,26 +27,23 @@ export function usePaginationSelect<State> (
   const cacheReq = req.value
 
   watch(() => tableRef.value, () => {
-    console.log('[pagination-select] table-ref mounted')
-    service.onMounted(
-      tableRef.value.toggleRowSelection,
-      tableRef.value.clearSelection
-    )
-  })
-
-  // page change
-  watch(() => data.list, (next, prev) => {
-    console.log('[pagination-select] data.list loaded', next, prev)
-    service.flushPageCache()
-    service.changeDataList(data.list)
+    if (tableRef.value) {
+      console.log('[pagination-select] table-ref mounted')
+      service.onMounted(
+        tableRef.value.toggleRowSelection,
+        tableRef.value.clearSelection
+      )
+    }
   })
 
   // loaded check cache checkbox
-  watch(() => data.loading, () => {
-    if (!data.loading) {
-      console.log('[pagination-select] page loaded')
+  watch([() => data.loading, () => data.list], ([nextLoad, nextList], prev) => {
+    if (!nextLoad && nextList) { // data loaded
+      console.log('[pagination-select] page loaded', nextList)
+      service.changeDataList(nextList as State[])
       service.checkbox()
     }
+    service.flushPageCache()
   })
 
   // filter conditions change
@@ -69,8 +66,10 @@ export function usePaginationSelect<State> (
     },
 
     selectChange (row: State[]) {
-      console.log('[pagination-select] select change', row.length)
-      service.selectChange(row)
+      if (!data.loading) {
+        console.log('[pagination-select] select change', row.length)
+        service.selectChange(row)
+      }
       if (state.isSelectAll) {
         state.count = data.total
       } else {
@@ -82,6 +81,8 @@ export function usePaginationSelect<State> (
       service.selectAll()
       state.count = data.total
       state.isSelectAll = true
+      state.isReq = true
+      req.value = cacheReq
     },
 
     selectCancel () {
