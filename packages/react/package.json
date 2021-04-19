@@ -6,7 +6,6 @@
   "files": [
     "dist"
   ],
-  "version": "0.0.4",
   "author": "poyoho",
   "devDependencies": {
     "@types/react": "^17.0.2"
@@ -16,5 +15,6 @@
   },
   "dependencies": {
     "@poyoho/shared-service": "0.0.4"
-  }
+  },
+  "version": "0.0.4"
 }

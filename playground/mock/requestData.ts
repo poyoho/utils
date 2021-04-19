@@ -1,9 +1,10 @@
-interface Query {
-  page: number
-  limit: number
+export interface Query {
+  page?: number
+  limit?: number
+  a?: number
 }
 
-interface RetType {
+export interface RetType {
   a: number
   b: number
 }

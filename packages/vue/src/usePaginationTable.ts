@@ -1,55 +1,69 @@
-import { PaginationParams } from '@poyoho/shared-service'
-import { reactive, Ref, watch } from "vue"
+import { reactive, Ref, watch } from 'vue'
 
-export function usePaginationTable<Query extends PaginationParams> (
-  request: Ref<(query: Query) => Promise<any>>,
+export interface PaginationParams {
+  page?: number
+  limit?: number
+}
+
+export function usePaginationTable<QueryParams, State> (
+  req: Ref<(query: QueryParams) => Promise<unknown>>,
+  q: QueryParams,
   opts?: {
-    formatKeyList: string;
-    formatKeyTotal: string;
-  },
+    formatKeyList?: string,
+    formatKeyTotal?: string
+  }
 ) {
-  opts = Object.assign({
-    formatKeyList: "list",
-    formatKeyTotal: "total",
-  }, opts)
-
   const data = reactive({
-    list: [],
-    total: 0,
     loading: false,
+    total: 0,
+    list: [] as State[],
   })
 
-  const query = reactive<Query>({
+  const query = reactive(Object.assign({
     page: 1,
     limit: 10,
-  } as Query)
+  }, q))
 
-  function req () {
-    console.log("[pagination-table] req", query)
+  opts = Object.assign({
+    formatKeyList: 'list',
+    formatKeyTotal: 'total'
+  }, opts)
+
+  function request () {
     data.loading = true
-    request.value(query as Query).then((res) => {
-      data.list = res[opts!.formatKeyList]
-      data.total = res[opts!.formatKeyTotal]
+    req.value(query as QueryParams).then((res: any) => {
+      console.log('[pagination-table] req', res.list)
+      data.list = res[opts!.formatKeyList!]
+      data.total = res[opts!.formatKeyTotal!]
     }).finally(() => {
       data.loading = false
     })
   }
 
-  function handleChange(page: number) {
+  function getListByPage (page: number) {
     query.page = page
-    req()
+    request()
   }
 
-  watch(() => request.value, () => {
+  function getListForPageSizeChanged (size: number) {
     query.page = 1
-    req()
+    query.limit = size
+    request()
+  }
+
+  watch(() => req.value, () => {
+    console.log('[pagination-table] req change')
+    query.page = 1
+    request()
   })
 
   return {
     data,
     query,
-
-    handleChange,
-    req,
+    page: {
+      page: getListByPage,
+      limit: getListForPageSizeChanged,
+    },
+    req: request
   }
 }

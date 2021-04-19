@@ -2,7 +2,6 @@
   "name": "@poyoho/shared-vue",
   "license": "MIT",
   "author": "poyoho",
-  "version": "0.0.4",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -16,5 +15,6 @@
   },
   "dependencies": {
     "@poyoho/shared-service": "0.0.4"
-  }
+  },
+  "version": "0.0.4"
 }

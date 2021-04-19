@@ -47,7 +47,12 @@ async function builddts(pkgPath) {
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/index.ts`),
     plugins: [
-      dts.default(),
+      dts.default({
+        compilerOptions: {
+          abortOnError: false,
+        },
+        abortOnError: false,
+      }),
     ],
     external(id) {
       // 不打包deps的项目

@@ -6,7 +6,8 @@
   "dependencies": {
     "element-plus": "^1.0.2-beta.40",
     "vue": "^3.0.4",
-    "vue-router": "^4.0.0-rc.2"
+    "vue-router": "^4.0.0-rc.2",
+    "@poyoho/shared-vue": "link:../../packages/vue/"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^1.0.4",

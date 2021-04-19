@@ -1,7 +1,6 @@
 {
   "private": true,
   "author": "poyoho",
-  "version": "0.0.4",
   "description": "A Library for shared",
   "scripts": {
     "vue": "cd playground/vue && yarn && yarn dev",
@@ -54,5 +53,6 @@
     "> 1%",
     "last 2 versions",
     "not ie <= 8"
-  ]
+  ],
+  "version": "0.0.4"
 }
