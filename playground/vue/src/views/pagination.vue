@@ -1,9 +1,9 @@
 <template>
   <span>{{ selectState.selectCount }}</span>
   <!-- <el-button :type="selectState.state.isReq ? 'primary' : 'success'" @click="selectState.toggleRequest">changeRequest</el-button> -->
-  <!-- <el-button :disabled="selectState.selectAll" @click="selectState.selectAll">all</el-button>
-  <el-button :disabled="!selectState.selectAll" @click="selectState.selectCancel">cancel</el-button>
-  <el-input v-model="query.a" style="height: 60px;" /> -->
+  <el-button :disabled="selectState.selectAll" @click="selectAll">all</el-button>
+  <el-button :disabled="!selectState.selectAll" @click="selectCancel">cancel</el-button>
+  <!-- <el-input v-model="query.a" style="height: 60px;" /> -->
   <el-table
     ref="tableRef"
     style="height: 100%"
@@ -64,6 +64,7 @@ export default defineComponent({
     const selectService = new SelectedService()
 
     selectService.event.subscribe(state => {
+      console.log('state change', state)
       selectState.value = state
       nextTick(() => {
         selectState.value.list.forEach(row => tableRef.value?.toggleRowSelection(row, row.$selected))
@@ -96,7 +97,14 @@ export default defineComponent({
 
       selectChange (rows: RetType[], currentRow: RetType) {
         selectService.selectChange(rows, currentRow)
-      }
+      },
+
+      selectAll () {
+        selectService.selectAll()
+      },
+      selectCancel () {
+        selectService.selectCancel()
+      },
 
     }
   },

@@ -40,7 +40,7 @@ export abstract class PaginationSelect<QueryParams, State> {
 
   private formatData (list: SelectableRow<State>[]) {
     return list.map(el => {
-      el.$selected = !!(this.rows.find(row => this.equal(row, el)))
+      el.$selected = this.state.selectAll ? true : !!(this.rows.find(row => this.equal(row, el)))
       return el
     })
   }
@@ -65,21 +65,20 @@ export abstract class PaginationSelect<QueryParams, State> {
 
   // select all
   public selectAll () {
-    this.event.next({
-      ...this.state,
-      selectAll: true,
-      selectCount: this.state.total
-    })
+    this.state.list = this.state.list.map(data => (data.$selected = true) && data)
+    this.state.selectAll = true
+    this.state.selectCount = this.state.total
+    console.log('state', this.state)
+    this.event.next({ ...this.state, })
   }
 
   // cancel select
   public selectCancel () {
     this.rows = []
-    this.event.next({
-      ...this.state,
-      selectAll: false,
-      selectCount: 0
-    })
+    this.state.list = this.state.list.map(data => (data.$selected = false) || data)
+    this.state.selectAll = false
+    this.state.selectCount = 0
+    this.event.next({ ...this.state })
   }
 
   // change select
