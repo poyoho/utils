@@ -22,7 +22,7 @@ function request (query: Query): Promise<{
   return new Promise(resolve => {
     setTimeout(() => {
       resolve({
-        list: staticData.slice((query.page - 1) * query.limit, (query.page) * query.limit),
+        list: staticData.slice((query.page! - 1) * query.limit!, (query.page!) * query.limit!),
         total: staticData.length,
       })
     }, 500)

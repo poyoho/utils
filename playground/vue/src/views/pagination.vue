@@ -5,9 +5,9 @@
   <el-button :disabled="!selectState.selectAll" @click="selectState.selectCancel">cancel</el-button>
   <el-input v-model="query.a" style="height: 60px;" /> -->
   <el-table
-    :ref="tableRef"
-    v-loading="data.loading"
+    ref="tableRef"
     style="height: 100%"
+    v-loading="state.loading"
     :data="selectState.list"
     @selection-change="selectChange"
     @select="selectChange"
@@ -26,13 +26,24 @@
   />
 </template>
 <script lang="ts">
-import { defineComponent, reactive, ref } from "vue"
-import { request, RetType } from "../../../mock/requestData"
+import { defineComponent, reactive, ref, nextTick } from "vue"
+import { request, RetType, Query } from "../../../mock/requestData"
 import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service"
 
-class SelectedService extends PaginationSelect<RetType> {
+class SelectedService extends PaginationSelect<Query, RetType> {
+  useFetchDataKey () {
+    return {
+      list: "list",
+      total: "total"
+    }
+  }
+
   equal(o: RetType,n: RetType): boolean {
     return o.a === n.a
+  }
+
+  fetchData(query: Query): Promise<Record<string,any>> {
+    return request(query)
   }
 }
 
@@ -46,29 +57,28 @@ export default defineComponent({
       limit: 10,
     })
 
-    const data = reactive({
-      loading: false,
+    const state = reactive({
+      loading: false
     })
 
     const selectService = new SelectedService()
 
-    selectService.state.subscribe(state => {
+    selectService.event.subscribe(state => {
       selectState.value = state
-      selectState.value.list.forEach(row => tableRef.value?.toggleRowSelection(row, row.$selected))
+      nextTick(() => {
+        selectState.value.list.forEach(row => tableRef.value?.toggleRowSelection(row, row.$selected))
+      })
     })
 
-    function getList() {
-      data.loading = true
-      request(query).then((res) => {
-        selectState.value.list = res.list as any
-        selectState.value.total = res.total as any
-      }).finally(() => {
-        data.loading = false
-      })
+    async function getList() {
+      state.loading = true
+      await selectService.refresh(query)
+      state.loading = false
     }
     getList()
+
     return {
-      data,
+      state,
       query,
       tableRef,
       selectState,
