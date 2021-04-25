@@ -1,119 +1,111 @@
+import { BehaviorSubject } from 'rxjs'
+
 export interface PaginationParams {
   page?: number
   limit?: number
 }
 
-export class PaginationSelect<State> {
-  private isSelectAll = false
-  private rows = new Map<any, State>()
+export interface PaginationSelectState<State> {
+  selectAll: boolean
+  selectCount: number
 
-  private dataList: State[] = []
-  private oldRows: Record<number | string, State> = {}
-  private diffKey: keyof State
-  private toggleRowSelection: (el: State, check: boolean) => void
-  private clearSelection: () => void
-  private opts: {
-    formatKeyList: string
-    formatKeyTotal: string
-  } = {
-    formatKeyList: 'list',
-    formatKeyTotal: 'total',
-  }
+  list: State[]
+  total: number
+  loading: boolean
+}
 
-  constructor (
-    diffKey: keyof State,
-    opts?: {
-      formatKeyList?: string;
-      formatKeyTotal?: string;
-    }
-  ) {
-    this.diffKey = diffKey
-    this.opts = Object.assign(this.opts, opts)
-  }
+export type SelectableRow<State> = State & { $selected: boolean }
 
-  public onMounted (
-    toggleRowSelection: (el: State, check: boolean) => void,
-    clearSelection: () => void
-  ) {
-    this.toggleRowSelection = toggleRowSelection
-    this.clearSelection = clearSelection
-  }
+export abstract class PaginationSelect<State> {
+  public state = new BehaviorSubject<PaginationSelectState<SelectableRow<State>>>({
+    selectCount: 0,
+    selectAll: false,
+    list: [] as SelectableRow<State>[],
+    total: 0,
+    loading: false,
+  })
 
-  // check cache rows
-  public checkbox () {
-    const oldList = new Set(this.row().map(el => el[this.diffKey]))
-    this.dataList.forEach(el => {
-      if (oldList.has(el[this.diffKey]) || (this.isSelectAll)) {
-        this.toggleRowSelection(el, true)
-      }
-    })
-  }
+  private pageSelectCount = 0
+  private reflush = true // reflush page
+  private rows: State[] = []
 
-  public flushPageCache () {
-    this.oldRows = {}
-  }
+  // diff row
+  abstract equal (o: State, n: State): boolean
 
-  private flushAllCache () {
-    this.flushPageCache()
-    this.rows.clear()
-  }
-
-  // change select
-  public selectChange (row: State[]) {
-    const newRows = row.reduce((prev, next) => {
-      prev[next[this.diffKey] as any] = next
-      return prev
-    }, {})
-    const newKeys = Object.keys(newRows)
-    const oldKeys = Object.keys(this.oldRows)
-
-    new Set(newKeys.concat(oldKeys)).forEach(k => {
-      if (!newRows[k] && this.oldRows[k]) { // new × / old √
-        this.rows.delete(k)
-      } else if (newRows[k] && !this.oldRows[k]) { // new √ / old ×
-        this.rows.set(k, newRows[k])
-      }
-    })
-    this.oldRows = newRows
+  // get rows
+  public selectData () {
+    return Array.from(this.rows.values())
   }
 
   // select all
   public selectAll () {
-    this.isSelectAll = true
-    this.checkbox()
+    this.state.next({
+      ...this.state.value,
+      selectAll: true,
+      selectCount: this.state.value.total
+    })
   }
 
   // cancel select
   public selectCancel () {
-    this.isSelectAll = false
-    this.flushAllCache()
-    this.clearSelection()
-  }
-
-  // request of memory data
-  public request (query: PaginationParams) {
-    const rows = this.row()
-    return Promise.resolve({
-      [this.opts.formatKeyList]: rows.slice(
-        (query.page! - 1) * query.limit!,
-        (query.page! - 1) * query.limit! + query.limit!
-      ),
-      [this.opts.formatKeyTotal]: rows.length,
+    this.rows = []
+    this.state.next({
+      ...this.state.value,
+      selectAll: false,
+      selectCount: 0
     })
   }
 
-  // get rows
-  public row () {
-    return Array.from(this.rows.values())
+  // change select
+  public selectChange (items: State[], currentRow?: State) {
+    if (currentRow) { // user check - single
+      const idx = this.rows.findIndex(el => this.equal(el, currentRow))
+      const ele = this.state.value.list.find(el => this.equal(el, currentRow))
+      if (idx !== -1) {
+        ele!.$selected = false
+        this.rows.splice(idx, 1)
+      } else {
+        ele!.$selected = true
+        this.rows.push(ele!)
+      }
+    } else { // auto - only work on [check all / check null]
+      if (items.length === this.state.value.list.length) {
+        this.state.value.list.forEach(row => {
+          row.$selected = true
+          const idx = this.rows.findIndex(el => this.equal(el, row))
+          if (idx === -1) {
+            this.rows.push(row)
+          }
+        })
+        this.state.value.selectCount = this.state.value.list.length
+      } else if (items.length === 0 && !this.reflush) {
+        this.state.value.list.forEach(row => {
+          row.$selected = false
+          const idx = this.rows.findIndex(el => this.equal(el, row))
+          if (idx !== -1) {
+            this.rows.splice(idx, 1)
+          }
+        })
+        this.state.value.selectCount = 0
+      }
+    }
+    this.reflush = false
+    this.state.next({
+      ...this.state.value,
+      selectCount: this.rows.length,
+    })
   }
 
-  // select count
-  public count () {
-    return this.rows.size
-  }
-
-  // change datalist
-  public changeDataList (dataList: State[]) {
-    this.dataList = dataList
+  // toggle current page select
+  togglePageSelect (check?: boolean) {
+    if (
+      (typeof check !== 'undefined' && check) ||
+      (this.pageSelectCount !== this.state.value.list.length)
+    ) {
+      this.reflush = true
+      this.selectChange(this.state.value.list)
+    } else {
+      this.selectChange([])
+    }
   }
 }

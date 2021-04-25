@@ -23,6 +23,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "dependencies": {
+    "rxjs": "^6.6.7"
+  },
   "license": "ISC",
   "devDependencies": {
     "@commitlint/config-conventional": "^11.0.0",
