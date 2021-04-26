@@ -1,8 +1,8 @@
 import { Subject } from 'rxjs'
 
 export interface PaginationParams {
-  page?: number
-  limit?: number
+  page: number
+  limit: number
 }
 
 export interface PaginationSelectState<State> {
@@ -16,7 +16,7 @@ export interface PaginationSelectState<State> {
 
 export type SelectableRow<State> = State & { $selected: boolean }
 
-export abstract class PaginationSelect<QueryParams, State> {
+export abstract class PaginationSelect<QueryParams extends PaginationParams, State> {
   private state = {
     selectCount: 0,
     selectAll: false,
@@ -24,10 +24,13 @@ export abstract class PaginationSelect<QueryParams, State> {
     pageSelectCount: 0,
     total: 0,
   } as PaginationSelectState<SelectableRow<State>>
-  private rows: State[] = []
-  private refreshed = false
-  private req = {
-    value: this.fetchData
+  private rows: SelectableRow<State>[] = []
+  private noRefreshed = false
+
+  private cache = {
+    rows: [] as SelectableRow<State>[], // cache rows when request of local data
+    useLocal: false,
+    req: this.fetchData.bind(this)
   }
 
   public event = new Subject<PaginationSelectState<SelectableRow<State>>>()
@@ -39,66 +42,74 @@ export abstract class PaginationSelect<QueryParams, State> {
   // use fetch data return key
   abstract useFetchDataKey (): { list: string, total: string }
 
-  private formatData (list: SelectableRow<State>[]) {
-    return list.map(el => {
-      el.$selected = this.state.selectAll ? true : !!(this.rows.find(row => this.equal(row, el)))
-      return el
-    })
-  }
-
-  public async refresh (params: QueryParams) {
-    await this.req.value(params).then(res => {
-      const key = this.useFetchDataKey()
-      this.state.pageSelectCount = 0
-      this.refreshed = true
-      this.state.list = this.formatData(res[key.list])
-      this.state.total = res[key.total]
-    }).finally(() => {
-      this.event.next({ ...this.state })
-      console.log('refresh2', this.state)
-    })
-  }
-
   // get rows
   public selectData () {
-    return Array.from(this.rows.values())
+    return this.rows.slice()
   }
 
-  // select all
-  public selectAll () {
-    this.state.list = this.state.list.map(data => (data.$selected = true) && data)
-    this.state.selectAll = true
-    this.state.selectCount = this.state.total
-    console.log('state', this.state)
-    this.event.next({ ...this.state, })
+  public async refresh (params: QueryParams, useLocal: boolean) {
+    if (this.cache.useLocal !== useLocal) {
+      if (useLocal && !this.state.selectAll) {
+        if (this.cache.rows.length === 0) {
+          this.cache.rows = this.rows.slice()
+        }
+        this.cache.req = this.localData.bind(this)
+      } else {
+        this.cache.rows = []
+        this.cache.req = this.fetchData.bind(this)
+      }
+      this.cache.useLocal = useLocal
+    }
+    await this.requestData(params)
   }
 
-  // cancel select
-  public selectCancel () {
-    this.rows = []
-    this.state.list = this.state.list.map(data => (data.$selected = false) || data)
-    this.state.selectAll = false
-    this.state.selectCount = 0
-    this.event.next({ ...this.state })
+  private localData (query: QueryParams): Promise<Record<string, any>> {
+    const key = this.useFetchDataKey()
+    return new Promise((resolve) => {
+      const startIndex = (query.page - 1) * query.limit
+      resolve({
+        [key.list]: this.cache.rows.slice(startIndex, startIndex + query.limit),
+        [key.total]: this.cache.rows.length,
+      })
+    })
   }
 
-  // change select
-  public selectChange (selectRows: State[], currentRow?: State) {
-    // no select all
-    if (currentRow) { // user check - single
+  private async requestData (params: QueryParams) {
+    await this.cache.req(params).then(res => {
+      const key = this.useFetchDataKey()
+      this.state.pageSelectCount = 0
+      this.state.selectCount = this.rows.length
+      this.noRefreshed = true
+      this.state.total = res[key.total]
+      this.state.list = res[key.list]
+      this.state.list.forEach(el => (el.$selected = this.state.selectAll ? true : !!(this.rows.find(row => this.equal(row, el)))))
+      this.event.next({
+        ...this.state,
+        selectCount: this.state.selectAll ? this.state.total : this.rows.length,
+      })
+    })
+  }
+
+  // select row merge to row
+  public SelectMergeRow (selectRows: State[], currentRow?: State) {
+    let done = false
+    if (currentRow) { // select one
+      done = true
       const idx = this.rows.findIndex(el => this.equal(el, currentRow))
-      const ele = this.state.list.find(el => this.equal(el, currentRow))
+      const ele = this.state.list.find(el => this.equal(el, currentRow))!
       if (idx !== -1) {
-        ele!.$selected = false
+        ele.$selected = false
         this.rows.splice(idx, 1)
         this.state.pageSelectCount--
       } else {
-        ele!.$selected = true
+        ele.$selected = true
         this.rows.push(ele!)
         this.state.pageSelectCount++
       }
-    } else { // auto - only work on [check all / check null]
-      if (selectRows.length === this.state.list.length) {
+    } else {
+      if (selectRows.length === this.state.list.length) { // select all
+        done = true
+        this.state.pageSelectCount = this.state.list.length
         this.state.list.forEach(row => {
           row.$selected = true
           const idx = this.rows.findIndex(el => this.equal(el, row))
@@ -107,7 +118,9 @@ export abstract class PaginationSelect<QueryParams, State> {
           }
         })
         this.state.selectCount = this.state.list.length
-      } else if (selectRows.length === 0 && !this.refreshed) {
+      } else if (selectRows.length === 0 && !this.noRefreshed) { // select cancel
+        done = true
+        this.state.pageSelectCount = 0
         this.state.list.forEach(row => {
           row.$selected = false
           const idx = this.rows.findIndex(el => this.equal(el, row))
@@ -117,25 +130,43 @@ export abstract class PaginationSelect<QueryParams, State> {
         })
       }
     }
-    this.refreshed = false
-    this.event.next({
-      ...this.state,
-      selectCount: this.state.selectAll ? this.state.total : this.rows.length,
-    })
+    this.noRefreshed = false
+    if (done) {
+      // console.log('SelectMergeRow', this.rows, selectRows, currentRow)
+      this.event.next({
+        ...this.state,
+        selectCount: this.state.selectAll ? this.state.total : this.rows.length,
+      })
+    }
   }
 
-  // toggle current page select
+  // select all
+  public selectAll () {
+    this.state.selectAll = true
+    this.noRefreshed = false
+    this.SelectMergeRow(this.state.list)
+  }
+
+  // select cancel
+  public selectCancel () {
+    this.rows = []
+    this.noRefreshed = false
+    this.state.selectAll = false
+    this.SelectMergeRow([])
+  }
+
+  // select page all / cancel
   togglePageSelect (check?: boolean) {
+    this.noRefreshed = false
     if (
       (typeof check !== 'undefined' && check) ||
       (this.state.pageSelectCount !== this.state.list.length)
     ) {
       this.state.pageSelectCount = this.state.list.length
-      this.state.list = this.state.list.map(data => (data.$selected = true) && data)
+      this.SelectMergeRow(this.state.list)
     } else {
       this.state.pageSelectCount = 0
-      this.state.list = this.state.list.map(data => (data.$selected = false) || data)
+      this.SelectMergeRow([])
     }
-    this.event.next({ ...this.state })
   }
 }

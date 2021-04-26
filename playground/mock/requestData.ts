@@ -1,10 +1,10 @@
-export interface Query {
-  page?: number
-  limit?: number
+interface Query {
+  page: number
+  limit: number
   a?: number
 }
 
-export interface RetType {
+interface RetType {
   a: number
   b: number
 }
@@ -40,4 +40,4 @@ const columns = [
   },
 ];
 
-export { request, columns, RetType }
+export { request, columns, RetType, Query }
