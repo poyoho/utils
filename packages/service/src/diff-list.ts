@@ -1,4 +1,5 @@
 type index = string | number
+export type FunctionEqual<State> = (o: State, n: State) => boolean
 
 export abstract class diff<State> {
   abstract push(row: State): void
@@ -7,9 +8,9 @@ export abstract class diff<State> {
   abstract has(row: State | index): index | undefined
   abstract length(): number
   abstract clear(): void
+  abstract equal(o: State, n: State): boolean
 }
 
-export type FunctionEqual<State> = (o: State, n: State) => boolean
 export class diffListByBoolean<State> extends diff<State> {
   private _data: Array<State>
   private _equal: FunctionEqual<State>
@@ -45,6 +46,10 @@ export class diffListByBoolean<State> extends diff<State> {
 
   clear() {
     this._data = []
+  }
+
+  equal(o: State, n: State) {
+    return this._equal(o, n)
   }
 }
 
@@ -85,5 +90,9 @@ export class diffListByKey<State> extends diff<State> {
 
   clear() {
     this._data.clear()
+  }
+
+  equal(o: State, n: State) {
+    return o[this._key] === n[this._key]
   }
 }

@@ -101,7 +101,6 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   }
 
   // select row merge to row
-  // TODO this.state.list.find(el => this.equal(el, currentRow))!
   public SelectMergeRow (selectRows: State[], currentRow?: any) {
     let done = false
     if(this.state.selectAll) {
@@ -110,7 +109,7 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
     if (currentRow) { // select one
       done = true
       const idx = this.selectRows.has(currentRow as SelectableRow<State>)
-      // const ele = this.state.list.find(el => this.equal(el, currentRow))!
+      // const ele = this.state.list.find(el => this.selectRows.equal(el, currentRow))!
       if (idx) {
         currentRow.$selected = false
         this.selectRows.del(idx)
