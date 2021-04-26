@@ -30,7 +30,6 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   private cache = {
     rows: [] as SelectableRow<State>[], // cache rows when request of local data
     useLocal: false,
-    req: this.fetchData.bind(this)
   }
 
   public event = new Subject<PaginationSelectState<SelectableRow<State>>>()
@@ -48,40 +47,12 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   }
 
   public async refresh (params: QueryParams, useLocal: boolean) {
-    if (this.cache.useLocal !== useLocal) {
-      if (useLocal && !this.state.selectAll) {
-        if (this.cache.rows.length === 0) {
-          this.cache.rows = this.rows.slice()
-        }
-        this.cache.req = this.localData.bind(this)
-      } else {
-        this.cache.rows = []
-        this.cache.req = this.fetchData.bind(this)
-      }
-      this.cache.useLocal = useLocal
-    }
-    await this.requestData(params)
-  }
-
-  private localData (query: QueryParams): Promise<Record<string, any>> {
-    const key = this.useFetchDataKey()
-    return new Promise((resolve) => {
-      const startIndex = (query.page - 1) * query.limit
-      resolve({
-        [key.list]: this.cache.rows.slice(startIndex, startIndex + query.limit),
-        [key.total]: this.cache.rows.length,
-      })
-    })
-  }
-
-  private async requestData (params: QueryParams) {
-    await this.cache.req(params).then(res => {
-      const key = this.useFetchDataKey()
+    await this.requestData(params, useLocal).then(res => {
       this.state.pageSelectCount = 0
-      this.state.selectCount = this.rows.length
       this.noRefreshed = true
-      this.state.total = res[key.total]
-      this.state.list = res[key.list]
+      this.state.list = res.list
+      this.state.total = res.total
+      // dafa format
       this.state.list.forEach(el => (el.$selected = this.state.selectAll ? true : !!(this.rows.find(row => this.equal(row, el)))))
       this.event.next({
         ...this.state,
@@ -90,9 +61,42 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
     })
   }
 
+  private async requestData (params: QueryParams, useLocal: boolean) {
+    if (this.cache.useLocal !== useLocal) {
+      if (useLocal && !this.state.selectAll) {
+        this.cache.rows = this.rows.slice()
+      } else {
+        this.cache.rows = []
+      }
+      this.cache.useLocal = useLocal
+    }
+    if (useLocal) {
+      return this.localData(params)
+    } else {
+      return this.fetchData(params).then(res => {
+        const key = this.useFetchDataKey()
+        return {
+          total: res[key.total],
+          list: res[key.list]
+        }
+      })
+    }
+  }
+
+  private localData (query: QueryParams): Promise<Record<string, any>> {
+    const startIndex = (query.page - 1) * query.limit
+    return  Promise.resolve({
+      list: this.cache.rows.slice(startIndex, startIndex + query.limit),
+      total: this.cache.rows.length,
+    })
+  }
+
   // select row merge to row
   public SelectMergeRow (selectRows: State[], currentRow?: State) {
     let done = false
+    if(this.state.selectAll) {
+      return
+    }
     if (currentRow) { // select one
       done = true
       const idx = this.rows.findIndex(el => this.equal(el, currentRow))
@@ -142,17 +146,24 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
 
   // select all
   public selectAll () {
+    this.rows = []
     this.state.selectAll = true
     this.noRefreshed = false
-    this.SelectMergeRow(this.state.list)
+    this.event.next({
+      ...this.state,
+      list: this.state.list.map(ele => (ele.$selected = true) && ele)
+    })
   }
 
   // select cancel
   public selectCancel () {
     this.rows = []
-    this.noRefreshed = false
     this.state.selectAll = false
-    this.SelectMergeRow([])
+    this.noRefreshed = false
+    this.event.next({
+      ...this.state,
+      list: this.state.list.map(ele => (ele.$selected = false) || ele)
+    })
   }
 
   // select page all / cancel
