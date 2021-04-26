@@ -50,8 +50,8 @@ class SelectedService extends PaginationSelect<Query, RetType> {
     }
   }
 
-  equal(o: RetType,n: RetType): boolean {
-    return o.a === n.a
+  equal() {
+    return "a"
   }
 
   fetchData(query: Query): Promise<Record<string,any>> {
