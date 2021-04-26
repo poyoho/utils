@@ -1,10 +1,10 @@
-export interface Query {
-  page?: number
-  limit?: number
-  a?: number
+interface Query {
+  page: number
+  limit: number
+  a?: string
 }
 
-export interface RetType {
+interface RetType {
   a: number
   b: number
 }
@@ -22,7 +22,7 @@ function request (query: Query): Promise<{
   return new Promise(resolve => {
     setTimeout(() => {
       resolve({
-        list: staticData.slice((query.page - 1) * query.limit, (query.page) * query.limit),
+        list: staticData.slice((query.page! - 1) * query.limit!, (query.page!) * query.limit!),
         total: staticData.length,
       })
     }, 500)
@@ -40,4 +40,4 @@ const columns = [
   },
 ];
 
-export { request, columns, RetType }
+export { request, columns, RetType, Query }

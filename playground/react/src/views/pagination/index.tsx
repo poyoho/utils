@@ -1,51 +1,136 @@
-import React, { useRef } from "react"
-import { usePaginationTable, usePaginationSelect } from "@poyoho/shared-react"
+import React, { useRef, useState, useMemo } from "react"
 import { Table, Input, Button } from "antd"
-import { request, columns } from "../../../../mock/requestData"
+import { request, RetType, Query, columns } from "../../../../mock/requestData"
+import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service"
 
-interface Query {
-  page: number
-  limit: number
-  a?: string
-}
+class SelectedService extends PaginationSelect<Query, RetType> {
+  useFetchDataKey () {
+    return {
+      list: "list",
+      total: "total"
+    }
+  }
 
-interface RetType {
-  a: number
-  b: number
+  equal(o: RetType,n: RetType): boolean {
+    return o.a === n.a
+  }
+
+  fetchData(query: Query): Promise<Record<string,any>> {
+    return request(query)
+  }
 }
 
 const Pagination: React.FC = () => {
-  let _req = useRef(request)
-  const { data, query, setQuery, page, req } = usePaginationTable<Query, RetType>(_req)
-  const selection = usePaginationSelect(data, query, "a", _req)
+  const selectService = useRef(new SelectedService())
+  const [selectState, setSelectState] = useState<PaginationSelectState<SelectableRow<RetType>>>({
+    selectCount: 0,
+    pageSelectCount: 0,
+    total: 0,
+    list: [] as SelectableRow<RetType>[],
+    selectAll: false,
+  })
+
+  selectService.current.event.subscribe(state => {
+    console.log('state change', state);
+    setSelectState(state)
+  })
+
+  const [state, setState] = useState({
+    loading: false,
+    useLocal: false,
+  })
+
+  const [query, setQuery] = useState<Query>({
+    page: 1,
+    limit: 10,
+  })
+
+  useMemo(() => {
+    getList(state.useLocal)
+  }, [query])
+
+  async function getList(useLocal: boolean) {
+    setState({...state, loading: true})
+    await selectService.current.refresh(query, useLocal)
+    setState({...state, loading: false})
+  }
+
+  async function toggleFetchData(useLocal?: boolean) {
+    let tmp: boolean;
+    if (typeof useLocal === 'undefined') {
+      tmp = !state.useLocal
+    } else {
+      tmp = useLocal
+    }
+    setState({...state, loading: false, useLocal: tmp})
+    setQuery({ ...query, page: 1})
+  }
+
+  function pageChange (page: number) {
+    setQuery({ ...query, page})
+  }
+
+  function limitChange (size: number) {
+    setQuery({ ...query, page: 1, limit: size})
+  }
+
+  function selectAll () {
+    selectService.current.selectAll()
+    if (state.useLocal) {
+      setState({...state, useLocal: false})
+      setQuery({ ...query })
+    }
+  }
+
+  function selectCancel () {
+    selectService.current.selectCancel()
+    if (state.useLocal) {
+      setState({...state, useLocal: false})
+      setQuery({ ...query })
+    }
+  }
 
   return (
     <div>
-      <span>{selection.state.count}</span>
-      <Button
-        type={selection.state.isReq ? 'primary' : 'default'}
-        onClick={selection.toggleRequest}
-      >changeRequest</Button>
-      <Button disabled={selection.state.isSelectAll} onClick={selection.selectAll}>all</Button>
-      <Button disabled={!selection.state.isSelectAll} onClick={selection.selectCancel}>cancel</Button>
-      <Input placeholder="Basic usage"
-        onPressEnter={(v) => {
-          setQuery((prev) => ({ ...prev, a: v.currentTarget.value }))
-        }}
-      />
+      <span>{selectState.selectCount}</span>
+      {
+        state.useLocal
+        ? <Button type="primary" onClick={() => toggleFetchData()}>查看所有</Button>
+        : <Button type="default" onClick={() => toggleFetchData()}>查看选中</Button>
+      }
+
+      {
+        ((selectState.pageSelectCount < selectState.list.length) || selectState.selectAll)
+        ? <Button type="primary" onClick={() => selectService.current.togglePageSelect()}>全选本页</Button>
+        : <Button type="default" onClick={() => selectService.current.togglePageSelect()}>反选本页</Button>
+      }
+
+      <Button disabled={selectState.selectAll} onClick={selectAll}>全选</Button>
+      <Button disabled={!selectState.selectAll} onClick={selectCancel}>取消</Button>
+      <Input placeholder="Basic usage" onPressEnter={(v) => setQuery((prev) => ({ ...prev, a: v.currentTarget.value }))} />
       <hr/>
       <Table
         rowKey="a"
-        rowSelection={selection.rowSelection}
         columns={columns}
-        dataSource={data.list}
-        loading={data.loading}
+        dataSource={selectState.list}
+        loading={state.loading}
+        rowSelection={{
+          type: "checkbox",
+          getCheckboxProps: () => ({ disabled: selectState.selectAll }),
+          selectedRowKeys: selectState.list.filter(el => el.$selected).map(el => el.a),
+          onSelect: (record, _, selectedRows) => {
+            selectService.current.SelectMergeRow(selectedRows, record)
+          },
+          onSelectAll(_, rows) {
+            selectService.current.SelectMergeRow(rows)
+          }
+        }}
         pagination={{
-          total: data.total,
+          total: selectState.total,
           current: query.page,
           pageSize: query.limit,
-          onChange: page.page,
-          onShowSizeChange: page.limit,
+          onChange: pageChange,
+          onShowSizeChange: limitChange,
         }}
       />
     </div>

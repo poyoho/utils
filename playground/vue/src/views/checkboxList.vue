@@ -18,10 +18,12 @@
     style="height: 100%"
     v-loading="state.loading"
     :data="selectState.list"
-    @selection-change="selectChange"
-    @select="selectChange"
   >
-    <el-table-column type="selection" :selectable="() => !selectState.selectAll" />
+    <el-table-column width="50px">
+      <template #default="scope">
+        <el-checkbox v-model="scope.row.$selected" :disabled="selectState.selectAll" @change="selectChange([], scope.row)"></el-checkbox>
+      </template>
+    </el-table-column>
     <el-table-column label="a" prop="a" />
     <el-table-column label="b" prop="b" />
   </el-table>
@@ -36,7 +38,7 @@
   <hr>
 </template>
 <script lang="ts">
-import { defineComponent, reactive, ref, nextTick } from "vue"
+import { defineComponent, reactive, ref } from "vue"
 import { request, RetType, Query } from "../../../mock/requestData"
 import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service"
 
@@ -84,9 +86,6 @@ export default defineComponent({
 
     selectService.event.subscribe(state => {
       selectState.value = state
-      nextTick(() => {
-        selectState.value.list.forEach(row => tableRef.value?.toggleRowSelection(row, row.$selected))
-      })
     })
 
     async function getList(useLocal: boolean) {
@@ -117,14 +116,17 @@ export default defineComponent({
         query.page = page
         getList(state.useLocal)
       },
+
       getListForPageSizeChanged (size: number) {
         query.page = 1
         query.limit = size
         getList(state.useLocal)
       },
+
       selectChange (rows: RetType[], currentRow: RetType) {
         selectService.SelectMergeRow(rows, currentRow)
       },
+
       selectAll () {
         selectService.selectAll()
         if (state.useLocal) {
