@@ -1,7 +1,7 @@
 interface Query {
   page: number
   limit: number
-  a?: number
+  a?: string
 }
 
 interface RetType {
