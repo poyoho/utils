@@ -1,6 +1,13 @@
 <template>
   <span>{{ selectState.selectCount }}</span>
   <!-- <el-button :type="selectState.state.isReq ? 'primary' : 'success'" @click="selectState.toggleRequest">changeRequest</el-button> -->
+  <el-button class="pagination-select-btn" @click="togglePageSelect" v-if="selectState.pageSelectCount < selectState.list.length">
+    page select all
+  </el-button>
+  <el-button type="primary" @click="togglePageSelect" v-else>
+    page cancel all
+  </el-button>
+
   <el-button :disabled="selectState.selectAll" @click="selectAll">all</el-button>
   <el-button :disabled="!selectState.selectAll" @click="selectCancel">cancel</el-button>
   <!-- <el-input v-model="query.a" style="height: 60px;" /> -->
@@ -51,7 +58,15 @@ class SelectedService extends PaginationSelect<Query, RetType> {
 export default defineComponent({
   setup() {
     const tableRef = ref()
-    const selectState = ref<PaginationSelectState<SelectableRow<RetType>>>({} as any)
+
+    const selectState = ref<PaginationSelectState<SelectableRow<RetType>>>({
+      selectCount: 0,
+      selectAll: false,
+      list: [] as SelectableRow<RetType>[],
+      pageSelectCount: 0,
+      total: 0,
+    })
+
     const query = reactive({
       page: 1,
       limit: 10,
@@ -64,8 +79,8 @@ export default defineComponent({
     const selectService = new SelectedService()
 
     selectService.event.subscribe(state => {
-      console.log('state change', state)
       selectState.value = state
+      console.log(state)
       nextTick(() => {
         selectState.value.list.forEach(row => tableRef.value?.toggleRowSelection(row, row.$selected))
       })
@@ -98,14 +113,15 @@ export default defineComponent({
       selectChange (rows: RetType[], currentRow: RetType) {
         selectService.selectChange(rows, currentRow)
       },
-
       selectAll () {
         selectService.selectAll()
       },
       selectCancel () {
         selectService.selectCancel()
       },
-
+      togglePageSelect () {
+        selectService.togglePageSelect()
+      }
     }
   },
 })

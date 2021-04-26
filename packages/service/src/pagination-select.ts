@@ -8,6 +8,7 @@ export interface PaginationParams {
 export interface PaginationSelectState<State> {
   selectAll: boolean
   selectCount: number
+  pageSelectCount: number
 
   list: State[]
   total: number
@@ -20,11 +21,11 @@ export abstract class PaginationSelect<QueryParams, State> {
     selectCount: 0,
     selectAll: false,
     list: [] as SelectableRow<State>[],
+    pageSelectCount: 0,
     total: 0,
   } as PaginationSelectState<SelectableRow<State>>
-  private pageSelectCount = 0
-  private reflush = true // reflush page
   private rows: State[] = []
+  private refreshed = false
   private req = {
     value: this.fetchData
   }
@@ -48,8 +49,8 @@ export abstract class PaginationSelect<QueryParams, State> {
   public async refresh (params: QueryParams) {
     await this.req.value(params).then(res => {
       const key = this.useFetchDataKey()
-      this.reflush = true
-      this.pageSelectCount = 0
+      this.state.pageSelectCount = 0
+      this.refreshed = true
       this.state.list = this.formatData(res[key.list])
       this.state.total = res[key.total]
     }).finally(() => {
@@ -83,15 +84,18 @@ export abstract class PaginationSelect<QueryParams, State> {
 
   // change select
   public selectChange (selectRows: State[], currentRow?: State) {
+    // no select all
     if (currentRow) { // user check - single
       const idx = this.rows.findIndex(el => this.equal(el, currentRow))
       const ele = this.state.list.find(el => this.equal(el, currentRow))
       if (idx !== -1) {
         ele!.$selected = false
         this.rows.splice(idx, 1)
+        this.state.pageSelectCount--
       } else {
         ele!.$selected = true
         this.rows.push(ele!)
+        this.state.pageSelectCount++
       }
     } else { // auto - only work on [check all / check null]
       if (selectRows.length === this.state.list.length) {
@@ -103,7 +107,7 @@ export abstract class PaginationSelect<QueryParams, State> {
           }
         })
         this.state.selectCount = this.state.list.length
-      } else if (selectRows.length === 0 && !this.reflush) {
+      } else if (selectRows.length === 0 && !this.refreshed) {
         this.state.list.forEach(row => {
           row.$selected = false
           const idx = this.rows.findIndex(el => this.equal(el, row))
@@ -111,13 +115,12 @@ export abstract class PaginationSelect<QueryParams, State> {
             this.rows.splice(idx, 1)
           }
         })
-        this.state.selectCount = 0
       }
     }
-    this.reflush = false
+    this.refreshed = false
     this.event.next({
       ...this.state,
-      selectCount: this.rows.length,
+      selectCount: this.state.selectAll ? this.state.total : this.rows.length,
     })
   }
 
@@ -125,12 +128,14 @@ export abstract class PaginationSelect<QueryParams, State> {
   togglePageSelect (check?: boolean) {
     if (
       (typeof check !== 'undefined' && check) ||
-      (this.pageSelectCount !== this.state.list.length)
+      (this.state.pageSelectCount !== this.state.list.length)
     ) {
-      this.reflush = true
-      this.selectChange(this.state.list)
+      this.state.pageSelectCount = this.state.list.length
+      this.state.list = this.state.list.map(data => (data.$selected = true) && data)
     } else {
-      this.selectChange([])
+      this.state.pageSelectCount = 0
+      this.state.list = this.state.list.map(data => (data.$selected = false) || data)
     }
+    this.event.next({ ...this.state })
   }
 }
