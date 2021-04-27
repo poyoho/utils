@@ -62,7 +62,9 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       this.state.list = res.list
       this.state.total = res.total
       // dafa format
-      this.state.list.forEach(el => (el.$selected = this.state.selectAll ? true : !!(this.selectRows.has(el))))
+      this.state.list.forEach(el => (el.$selected = this.state.selectAll ? true : (this.selectRows.has(el) !== undefined)))
+      console.log(this.selectRows.has(this.state.list[0]));
+
       this.event.next({
         ...this.state,
         selectCount: this.state.selectAll ? this.state.total : this.selectRows.length(),
@@ -110,7 +112,7 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       done = true
       const idx = this.selectRows.has(currentRow as SelectableRow<State>)
       // const ele = this.state.list.find(el => this.selectRows.equal(el, currentRow))!
-      if (idx) {
+      if (idx !== undefined) {
         currentRow.$selected = false
         this.selectRows.del(idx)
         this.state.pageSelectCount--
@@ -126,8 +128,8 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
         this.state.list.forEach(row => {
           row.$selected = true
           const idx = this.selectRows.has(row)
-          if (!idx) {
-            this.rows.push(row)
+          if (idx === undefined) {
+            this.selectRows.push(row)
           }
         })
         this.state.selectCount = this.state.list.length
@@ -137,7 +139,7 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
         this.state.list.forEach(row => {
           row.$selected = false
           const idx = this.selectRows.has(row)
-          if (idx) {
+          if (idx !== undefined) {
             this.selectRows.del(idx)
           }
         })
@@ -160,18 +162,21 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
     this.noRefreshed = false
     this.event.next({
       ...this.state,
-      list: this.state.list.map(ele => (ele.$selected = true) && ele)
+      list: this.state.list.map(ele => (ele.$selected = true) && ele),
+      selectCount: this.state.total,
     })
   }
 
   // select cancel
   public selectCancel () {
     this.selectRows.clear()
+    console.log(this.selectRows)
     this.state.selectAll = false
     this.noRefreshed = false
     this.event.next({
       ...this.state,
-      list: this.state.list.map(ele => (ele.$selected = false) || ele)
+      list: this.state.list.map(ele => (ele.$selected = false) || ele),
+      selectCount: 0
     })
   }
 
