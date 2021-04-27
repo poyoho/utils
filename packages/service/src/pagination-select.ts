@@ -1,5 +1,5 @@
 import { Subject } from 'rxjs'
-
+import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "./diff-list"
 export interface PaginationParams {
   page: number
   limit: number
@@ -24,9 +24,8 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
     pageSelectCount: 0,
     total: 0,
   } as PaginationSelectState<SelectableRow<State>>
-  private rows: SelectableRow<State>[] = []
   private noRefreshed = false
-
+  private selectRows: diff<SelectableRow<State>>
   private cache = {
     rows: [] as SelectableRow<State>[], // cache rows when request of local data
     useLocal: false,
@@ -35,15 +34,24 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   public event = new Subject<PaginationSelectState<SelectableRow<State>>>()
 
   // diff row
-  abstract equal (o: State, n: State): boolean
+  abstract equal (o?: State, n?: State): boolean | string | number
   // request data
   abstract fetchData (query: QueryParams): Promise<Record<string, any>>
   // use fetch data return key
   abstract useFetchDataKey (): { list: string, total: string }
 
+  constructor () {
+    try {
+      const key = this.equal() as string | number
+      this.selectRows = new diffListByKey<SelectableRow<State>>(key)
+    } catch (e) {
+      this.selectRows = new diffListByBoolean<SelectableRow<State>>(this.equal as FunctionEqual<State>)
+    }
+  }
+
   // get rows
   public selectData () {
-    return this.rows.slice()
+    return this.selectRows.value()
   }
 
   public async refresh (params: QueryParams, useLocal: boolean) {
@@ -53,10 +61,13 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       this.state.list = res.list
       this.state.total = res.total
       // dafa format
-      this.state.list.forEach(el => (el.$selected = this.state.selectAll ? true : !!(this.rows.find(row => this.equal(row, el)))))
+      this.state.list.forEach(el => {
+        el.$selected = this.state.selectAll ? true : (this.selectRows.has(el) !== undefined)
+        if (el.$selected) this.state.pageSelectCount++
+      })
       this.event.next({
         ...this.state,
-        selectCount: this.state.selectAll ? this.state.total : this.rows.length,
+        selectCount: this.state.selectAll ? this.state.total : this.selectRows.length(),
       })
     })
   }
@@ -64,13 +75,13 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   private async requestData (params: QueryParams, useLocal: boolean) {
     if (this.cache.useLocal !== useLocal) {
       if (useLocal && !this.state.selectAll) {
-        this.cache.rows = this.rows.slice()
+        this.cache.rows = this.selectRows.value()
       } else {
         this.cache.rows = []
       }
       this.cache.useLocal = useLocal
     }
-    if (useLocal) {
+    if (useLocal && !this.state.selectAll) {
       return this.localData(params)
     } else {
       return this.fetchData(params).then(res => {
@@ -92,22 +103,22 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   }
 
   // select row merge to row
-  public SelectMergeRow (selectRows: State[], currentRow?: State) {
+  public SelectMergeRow (selectRows: State[], currentRow?: any) {
     let done = false
     if(this.state.selectAll) {
       return
     }
     if (currentRow) { // select one
       done = true
-      const idx = this.rows.findIndex(el => this.equal(el, currentRow))
-      const ele = this.state.list.find(el => this.equal(el, currentRow))!
-      if (idx !== -1) {
-        ele.$selected = false
-        this.rows.splice(idx, 1)
+      const idx = this.selectRows.has(currentRow as SelectableRow<State>)
+      // const ele = this.state.list.find(el => this.selectRows.equal(el, currentRow))!
+      if (idx !== undefined) {
+        currentRow.$selected = false
+        this.selectRows.del(idx)
         this.state.pageSelectCount--
       } else {
-        ele.$selected = true
-        this.rows.push(ele!)
+        currentRow.$selected = true
+        this.selectRows.push(currentRow)
         this.state.pageSelectCount++
       }
     } else {
@@ -116,9 +127,9 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
         this.state.pageSelectCount = this.state.list.length
         this.state.list.forEach(row => {
           row.$selected = true
-          const idx = this.rows.findIndex(el => this.equal(el, row))
-          if (idx === -1) {
-            this.rows.push(row)
+          const idx = this.selectRows.has(row)
+          if (idx === undefined) {
+            this.selectRows.push(row)
           }
         })
         this.state.selectCount = this.state.list.length
@@ -127,9 +138,9 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
         this.state.pageSelectCount = 0
         this.state.list.forEach(row => {
           row.$selected = false
-          const idx = this.rows.findIndex(el => this.equal(el, row))
-          if (idx !== -1) {
-            this.rows.splice(idx, 1)
+          const idx = this.selectRows.has(row)
+          if (idx !== undefined) {
+            this.selectRows.del(idx)
           }
         })
       }
@@ -139,30 +150,33 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       // console.log('SelectMergeRow', this.rows, selectRows, currentRow)
       this.event.next({
         ...this.state,
-        selectCount: this.state.selectAll ? this.state.total : this.rows.length,
+        selectCount: this.state.selectAll ? this.state.total : this.selectRows.length(),
       })
     }
   }
 
   // select all
   public selectAll () {
-    this.rows = []
+    this.selectRows.clear()
     this.state.selectAll = true
     this.noRefreshed = false
     this.event.next({
       ...this.state,
-      list: this.state.list.map(ele => (ele.$selected = true) && ele)
+      list: this.state.list.map(ele => (ele.$selected = true) && ele),
+      selectCount: this.state.total,
     })
   }
 
   // select cancel
   public selectCancel () {
-    this.rows = []
+    this.selectRows.clear()
     this.state.selectAll = false
     this.noRefreshed = false
+    this.state.pageSelectCount = 0
     this.event.next({
       ...this.state,
-      list: this.state.list.map(ele => (ele.$selected = false) || ele)
+      list: this.state.list.map(ele => (ele.$selected = false) || ele),
+      selectCount: 0
     })
   }
 
@@ -173,11 +187,10 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       (typeof check !== 'undefined' && check) ||
       (this.state.pageSelectCount !== this.state.list.length)
     ) {
-      this.state.pageSelectCount = this.state.list.length
       this.SelectMergeRow(this.state.list)
     } else {
-      this.state.pageSelectCount = 0
       this.SelectMergeRow([])
     }
+    // console.log(this.selectRows);
   }
 }
