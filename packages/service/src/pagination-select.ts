@@ -24,7 +24,6 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
     pageSelectCount: 0,
     total: 0,
   } as PaginationSelectState<SelectableRow<State>>
-  private rows: SelectableRow<State>[] = []
   private noRefreshed = false
   private selectRows: diff<SelectableRow<State>>
   private cache = {
@@ -62,9 +61,10 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       this.state.list = res.list
       this.state.total = res.total
       // dafa format
-      this.state.list.forEach(el => (el.$selected = this.state.selectAll ? true : (this.selectRows.has(el) !== undefined)))
-      console.log(this.selectRows.has(this.state.list[0]));
-
+      this.state.list.forEach(el => {
+        el.$selected = this.state.selectAll ? true : (this.selectRows.has(el) !== undefined)
+        if (el.$selected) this.state.pageSelectCount++
+      })
       this.event.next({
         ...this.state,
         selectCount: this.state.selectAll ? this.state.total : this.selectRows.length(),
@@ -81,7 +81,7 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       }
       this.cache.useLocal = useLocal
     }
-    if (useLocal) {
+    if (useLocal && !this.state.selectAll) {
       return this.localData(params)
     } else {
       return this.fetchData(params).then(res => {
