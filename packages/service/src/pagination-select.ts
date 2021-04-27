@@ -170,9 +170,9 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
   // select cancel
   public selectCancel () {
     this.selectRows.clear()
-    console.log(this.selectRows)
     this.state.selectAll = false
     this.noRefreshed = false
+    this.state.pageSelectCount = 0
     this.event.next({
       ...this.state,
       list: this.state.list.map(ele => (ele.$selected = false) || ele),
@@ -187,11 +187,10 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
       (typeof check !== 'undefined' && check) ||
       (this.state.pageSelectCount !== this.state.list.length)
     ) {
-      this.state.pageSelectCount = this.state.list.length
       this.SelectMergeRow(this.state.list)
     } else {
-      this.state.pageSelectCount = 0
       this.SelectMergeRow([])
     }
+    // console.log(this.selectRows);
   }
 }

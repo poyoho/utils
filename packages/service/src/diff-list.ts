@@ -55,29 +55,34 @@ export class diffListByBoolean<State> extends diff<State> {
 
 export type KeyEqual = string | number
 export class diffListByKey<State> extends diff<State> {
-  private _data: Map<KeyEqual, State>;
+  private _data: Record<KeyEqual, State>;
   private _key: KeyEqual
-  constructor(key: KeyEqual, init?: Map<KeyEqual, State>) {
+  private _length: number
+  constructor(key: KeyEqual, init?: Record<KeyEqual, State>) {
     super()
-    this._data = init || new Map()
+    this._data = init || Object.create({})
     this._key = key
+    this._length = 0
   }
 
   push(row: State) {
-    this._data.set(row[this._key], row)
+    this._data[row[this._key]] = row
+    this._length++
   }
 
   del(idx: KeyEqual) {
-    this._data.delete(idx as number)
+    delete this._data[idx]
+    this._length--
   }
 
   value() {
-    return Array.from(this._data.values())
+    return Object.values(this._data)
   }
 
   has(row: State) {
     const k = row[this._key]
-    if (this._data.has(k)) {
+    const v = this._data[k]
+    if (v) {
       return k
     } else {
       return undefined
@@ -85,11 +90,12 @@ export class diffListByKey<State> extends diff<State> {
   }
 
   length() {
-    return this._data.size
+    return this._length
   }
 
   clear() {
-    this._data.clear()
+    this._length = 0
+    this._data = Object.create({})
   }
 
   equal(o: State, n: State) {
