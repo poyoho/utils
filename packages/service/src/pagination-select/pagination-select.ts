@@ -1,5 +1,5 @@
 import { Subject } from 'rxjs'
-import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "./diff-list"
+import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "../diff/diff-list"
 export interface PaginationParams {
   page: number
   limit: number
