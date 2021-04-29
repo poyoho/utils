@@ -20,13 +20,13 @@ export default defineComponent({
       data: []
     })
 
-    function handleFileChange(e) {
-      const [file] = e.target.files
+    function handleFileChange(e: { target: HTMLInputElement }) {
+      const [file] = Array.from(e.target.files)
       if (!file) return
       state.container.file = file
     }
 
-    function createFileChunk(file, size = SIZE) {
+    function createFileChunk(file: File, size = SIZE) {
       const fileChunkList = []
       let cur = 0
       while (cur < file.size) {
@@ -45,12 +45,12 @@ export default defineComponent({
           formData.append("filename", state.container.file.name)
           return { formData }
         })
-        .map(async ({ formData }) =>
-          request({
+        .map(async ({ formData }) => {
+          return request({
             url: "http://localhost:3000",
             data: formData
           })
-        )
+        })
       await Promise.all(requestList) // 并发切片
     }
 
@@ -61,7 +61,8 @@ export default defineComponent({
         chunk: file,
         hash: state.container.file.name + "-" + idx // 文件名 + 数组下标
       }))
-      await uploadChunks()
+      console.log(state.data)
+      // await uploadChunks()
     }
 
     return {
