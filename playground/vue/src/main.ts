@@ -1,11 +1,10 @@
 import { createApp } from "vue"
-import App from "./App.vue"
 import ElementPlus from "element-plus"
 import Router from "./route"
 import 'element-plus/lib/theme-chalk/index.css'
+import { RouterView } from "vue-router"
 
-const app = createApp(App)
-
+const app = createApp(RouterView)
 app.use(ElementPlus)
 app.use(Router)
 app.mount("#app")

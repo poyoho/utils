@@ -1,15 +1,22 @@
 {
- "compilerOptions": {
-    "strictNullChecks": true,
+  "compilerOptions": {
+    "module": "esnext",
+    "declaration": true,
+    "noImplicitAny": false,
+    "removeComments": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "experimentalDecorators": true,
+    "noLib": false,
+    "target": "es2017",
+    "sourceMap": true,
+    "lib": [
+      "ESNext", "DOM"
+    ],
     "jsx": "preserve",
-    "noUnusedParameters": true,
-    "noUnusedLocals": true,
-    "target": "es5",
-    "lib": ["dom", "esnext"],
-    "skipLibCheck": true
- },
- "exclude": ["**/node_modules/**"]
-}
+    "allowSyntheticDefaultImports": true
+  },
+  "exclude": [
+    "node_modules",
+    "script"
+  ]
+ }
