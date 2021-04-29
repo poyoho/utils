@@ -1,1 +1,2 @@
-export * from "./src/pagination-select/pagination-select"
+export * from "./src/pagination-select"
+export * from "./src/upload"
