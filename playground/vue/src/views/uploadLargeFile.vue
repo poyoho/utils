@@ -47,7 +47,7 @@ export default defineComponent({
         })
         .map(async ({ formData }) => {
           return request({
-            url: "http://localhost:3000",
+            url: "http://localhost:3000/chunk",
             data: formData
           })
         })
@@ -61,8 +61,7 @@ export default defineComponent({
         chunk: file,
         hash: state.container.file.name + "-" + idx // 文件名 + 数组下标
       }))
-      console.log(state.data)
-      // await uploadChunks()
+      await uploadChunks()
     }
 
     return {
