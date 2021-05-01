@@ -4,7 +4,7 @@
     <div class="relative">
       <Menu class="menu" :route="routes" />
       <div class="view">
-        <RouterView class="view" />
+        <RouterView />
       </div>
     </div>
   </div>
