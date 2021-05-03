@@ -43,15 +43,26 @@ export default defineComponent({
           formData.append("chunk", chunk)
           formData.append("hash", hash)
           formData.append("filename", state.container.file.name)
+          formData.append("fileHash", hash)
           return { formData }
         })
         .map(async ({ formData }) => {
           return request({
-            url: "http://localhost:3000/chunk",
+            url: "http://localhost:3000/upload",
             data: formData
           })
         })
       await Promise.all(requestList) // 并发切片
+      await request({
+        url: "http://localhost:3000/merge",
+        headers: {
+          "content-type": "application/json"
+        },
+        data: JSON.stringify({
+          size: SIZE,
+          filename: state.container.file.name
+        })
+      })
     }
 
     async function handleUpload() {

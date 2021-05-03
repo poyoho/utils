@@ -17,12 +17,12 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
-    "noImplicitThis": true, // 对包含“any”类型的“this”表达式提出错误。
+    "noImplicitThis": false, // 对包含“any”类型的“this”表达式提出错误。
     "suppressImplicitAnyIndexErrors": true, // 阻止--noImplicitAny对缺少索引签名的索引对象报错。
-    "strictNullChecks": true, // 启用严格的空检查
+    "strictNullChecks": false, // 启用严格的空检查
     "strictFunctionTypes": true, // 启用对函数类型的严格检查。
-    "noUnusedLocals": true, // 报告未使用局部变量的错误。
-    "noUnusedParameters": true, // 报告未使用参数的错误。
+    "noUnusedLocals": false, // 报告未使用局部变量的错误。
+    "noUnusedParameters": false, // 报告未使用参数的错误。
   },
   "include": [
     "src",
