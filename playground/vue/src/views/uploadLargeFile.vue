@@ -120,7 +120,7 @@ export default defineComponent({
       },
 
       async handleUpload () {
-        const chunkSizes = uploadService.createFileChunk()
+        uploadService.createFileChunk()
         await uploadService.uploadFileChunk()
       },
     }
