@@ -75,7 +75,7 @@ export abstract class UploadLargeFile {
     private sparkMd5CDN: string,
     private maxConnection = 4,
     private tryRequest = 3,
-    public SIZE = 10 * 1024 // * 1024 * 1024
+    public SIZE = 1024 // * 1024 * 1024
   ) {
     //
   }

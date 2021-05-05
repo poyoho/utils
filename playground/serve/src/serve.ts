@@ -9,28 +9,29 @@ const server = http.createServer()
 const UPLOAD_DIR = path.resolve(__dirname, "..", "save")
 const extractExt = (filename: string) => filename.slice(filename.lastIndexOf("."), filename.length)
 
-const pipeStream = (path: string, ws: fs.WriteStream) => {
+const pipeStream = (path: string, writeStream: fs.WriteStream) => {
   return new Promise(resolve => {
     const rs = fs.createReadStream(path)
+    rs.pipe(writeStream, { end: true })
     rs.on("end", () => {
       fs.unlinkSync(path)
       resolve(null)
     })
-    rs.pipe(ws)
   })
 }
 
 const mergeFileChunk = async (filePath: string, filehash: string) => {
   const chunkDir = path.resolve(UPLOAD_DIR, filehash)
   const chunkPaths = await fs.readdir(chunkDir)
-  await Promise.all(chunkPaths.map((chunkPath, idx) => {
+  // TODO sort chunkPaths
+  let startIdx = 0
+  await Promise.all(chunkPaths.map((chunkPath) => {
     const _chunkPath = path.resolve(chunkDir, chunkPath)
     const fileStat = fs.statSync(_chunkPath)
-    console.log(chunkPath, idx, fileStat.size)
-    return pipeStream(
-      _chunkPath,
-      fs.createWriteStream(filePath, { start: idx * 10 * 1024 })
-    )
+    const ws = fs.createWriteStream(filePath, { start: startIdx })
+    startIdx += fileStat.size
+    console.log(startIdx)
+    return pipeStream(_chunkPath, ws)
   }))
   fs.rmdirSync(chunkDir)
 }
@@ -61,13 +62,13 @@ server.on("request", async (req, res) => {
     const { filename, filehash } = data
     const ext = extractExt(filename)
     const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
+    await mergeFileChunk(filePath, filehash)
     res.end(
       JSON.stringify({
         code: 0,
         message: "file merged success"
       })
       )
-    await mergeFileChunk(filePath, filehash)
     return
   } else if (req.url === "/upload") {
     const multipart = new multiparty.Form()
