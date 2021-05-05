@@ -1,5 +1,7 @@
 import { Subject } from "rxjs"
 import Spark from "spark-md5"
+import { PromiseTryAllWithMax } from "@poyoho/shared-service"
+
 // file chunk
 export interface FileChunk {
   index: number
@@ -70,7 +72,9 @@ export abstract class UploadLargeFile {
   constructor (
     private genHashType: genHashType,
     private sparkMd5CDN: string,
-    public SIZE = 10 * 1024 * 1024
+    private maxConnection = 4,
+    private tryRequest = 3,
+    public SIZE = 100 * 1024 * 1024
   ) {
     //
   }
@@ -120,10 +124,10 @@ export abstract class UploadLargeFile {
           return true
         }
       })
-      .map(formData => this.uploadAPI({ ...formData, filehash }))
+      .map(formData => () => this.uploadAPI({ ...formData, filehash }))
     this.shardState.fileChunksDesc = fileChunksDesc
     this.event.next({ ...this.shardState })
-    await Promise.all(uploadChunks)
+    await PromiseTryAllWithMax(uploadChunks, this.maxConnection, this.tryRequest)
     await this.mergeAPI({ size: this.SIZE, filename: this.state.file.name, filehash })
     this.shardState.fileChunksDesc = fileChunksDesc.map(el => (el.percent = 102) && el)
     this.event.next({ ...this.shardState })
