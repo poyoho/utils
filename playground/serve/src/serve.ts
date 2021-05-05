@@ -5,9 +5,9 @@ import multiparty from "multiparty"
 
 const server = http.createServer()
 
-const UPLOAD_DIR = path.resolve(__dirname, "..", "save")
-// const extractExt = (filename: string) => filename.slice(filename.lastIndexOf("."), filename.length)
 
+const UPLOAD_DIR = path.resolve(__dirname, "..", "save")
+const extractExt = (filename: string) => filename.slice(filename.lastIndexOf("."), filename.length)
 
 const pipeStream = (path: string, writeStream: fs.WriteStream) => {
   return new Promise(resolve => {
@@ -20,8 +20,8 @@ const pipeStream = (path: string, writeStream: fs.WriteStream) => {
   })
 }
 
-const mergeFileChunk = async (filePath: string, filename: string, size: number) => {
-  const chunkDir = path.resolve(UPLOAD_DIR, `_${filename}`)
+const mergeFileChunk = async (filePath: string, filehash: string, size: number) => {
+  const chunkDir = path.resolve(UPLOAD_DIR, filehash)
   const chunkPaths = await fs.readdir(chunkDir)
   chunkPaths.sort((a, b) => a.split("-")[1].localeCompare(b.split("-")[1]))
   await Promise.all(chunkPaths.map((chunkPath, idx) => pipeStream(
@@ -30,6 +30,17 @@ const mergeFileChunk = async (filePath: string, filename: string, size: number) 
   )))
   fs.rmdirSync(chunkDir)
 }
+
+const resolvePost = (req: any): Promise<any> =>
+  new Promise(resolve => {
+    let chunk = "";
+    req.on("data", (data: any) => {
+      chunk += data;
+    })
+    req.on("end", () => {
+      resolve(JSON.parse(chunk));
+    })
+  })
 
 server.on("request", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*")
@@ -41,22 +52,12 @@ server.on("request", async (req, res) => {
   }
 
   if (req.url === "/merge") {
-    console.log('/merge')
-    const data = await new Promise<{
-      filename: string,
-      size: number
-    }>(resolve => {
-      let chunk = ""
-      req.on("data", (data: Blob) => {
-        chunk += data
-      })
-      req.on("end", () => {
-        resolve(JSON.parse(chunk))
-      })
-    })
-    const { filename, size } = data
-    const filePath = path.resolve(UPLOAD_DIR, `${filename}`)
-    await mergeFileChunk(filePath, filename, size)
+    const data = await resolvePost(req)
+    console.log('/merge', data)
+    const { filename, filehash, size } = data
+    const ext = extractExt(filename)
+    const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
+    await mergeFileChunk(filePath, filehash, size)
     res.end(
       JSON.stringify({
         code: 0,
@@ -65,7 +66,6 @@ server.on("request", async (req, res) => {
     )
     return
   } else if (req.url === "/upload") {
-    console.log('/upload')
     const multipart = new multiparty.Form()
     multipart.parse(req, async (err, fields, files) => {
       if (err) {
@@ -74,23 +74,48 @@ server.on("request", async (req, res) => {
         res.end("process file chunk failed")
         return
       }
+      console.log('/upload', fields)
       const [chunk] = files.chunk
       const [hash] = fields.hash
       const [filename] = fields.filename
-      // const [fileHash] = fields.fileHash
-      const chunkDir = path.resolve(UPLOAD_DIR, `_${filename}`)
-      const filePath = path.resolve(chunkDir, hash)
-      if (fs.existsSync(filePath)) {
-        console.log('file exist', filePath)
+      const [fileHash] = fields.filehash
+      const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
+      const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(filename)}`)
+      const chunkPath = path.resolve(chunkDir, hash)
+      if (fs.existsSync(filePath) || fs.existsSync(chunkPath)) {
         res.end("file exist")
         return
       }
       if (!fs.existsSync(chunkDir)) {
         await fs.mkdirs(chunkDir)
       }
-      await fs.move(chunk.path, filePath)
+      await fs.move(chunk.path, chunkPath)
       res.end("received file chunk")
     })
+  } else if (req.url === "/verify") {
+    const data = await resolvePost(req)
+    console.log("/verify", data)
+    const { filehash, filename } = data
+    const ext = extractExt(filename)
+    const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
+    if (fs.existsSync(filePath)) {
+      res.end(
+        JSON.stringify({
+          shouldUpload: false
+        })
+      );
+    } else {
+      const createUploadedList = async (fileHash: string) =>
+        fs.existsSync(path.resolve(UPLOAD_DIR, fileHash))
+          ? await fs.readdir(path.resolve(UPLOAD_DIR, fileHash))
+          : [];
+      res.end(
+        JSON.stringify({
+          shouldUpload: true,
+          uploadedList: await createUploadedList(filehash)
+        })
+      );
+    }
   }
 })
 

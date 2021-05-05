@@ -3,24 +3,26 @@
    <input type="file" @change="handleFileChange" />
    <el-button @click="handleUpload">上传</el-button>
   </div>
-  <div>
-    <div>总进度</div>
-    <el-progress :percentage="uploadPercent"></el-progress>
+  <div class="cube-container" :style="{width:cubeWidth+'px'}">
+    <div class="cube"
+      v-for="chunk in uploadState.percent"
+      :key="chunk.name">
+      <div
+        :class="{
+        'uploading':chunk.percent>0&&chunk.percent<100,
+        'success':chunk.percent===100
+        }"
+        :style="{height:chunk.percent+'%'}"
+        >
+        <i v-if="chunk.percent>0&&chunk.percent<100" class="el-icon-loading" style="color:#F56C6C;"></i>
+      </div>
+    </div>
   </div>
-  <el-table :data="uploadState.percent" v-if="uploadPercent">
-    <el-table-column label="name" align="center" prop="name"></el-table-column>
-    <el-table-column label="大小(KB)" align="center" width="120">
-      <template v-slot="{ row }">{{ transformByte(row.size) }}</template>
-    </el-table-column>
-    <el-table-column label="进度" align="center">
-      <template v-slot="{ row }"><el-progress :percentage="row.percent"></el-progress></template>
-    </el-table-column>
-  </el-table>
 </template>
 
 <script lang="ts">
 import { computed, defineComponent, reactive } from "vue"
-import { UploadLargeFile, FileChunk, MergeParams } from "@poyoho/shared-service"
+import { UploadLargeFile, UploadParams, MergeParams, verifyUploadParamas } from "@poyoho/shared-service"
 
 export function request({
   url,
@@ -47,14 +49,15 @@ export function request({
 
 class UploadService extends UploadLargeFile {
   constructor (private onProgress: (idx: number, e: ProgressEvent<EventTarget>) => void) {
-    super()
+    super("worker", "http://localhost:3050/spark-md5.min.js")
   }
 
-  uploadAPI (data: FileChunk) {
+  uploadAPI (data: UploadParams) {
     const formData = new FormData()
     formData.append("chunk", data.chunk)
     formData.append("hash", data.hash)
     formData.append("filename", data.filename)
+    formData.append("filehash", data.filehash)
     return request({
       url: "http://localhost:3000/upload",
       data: formData,
@@ -70,6 +73,20 @@ class UploadService extends UploadLargeFile {
       },
       data: JSON.stringify(data)
     })
+  }
+
+  async verifyAPI (data: verifyUploadParamas) {
+    const res = JSON.parse((await request({
+      url: "http://localhost:3000/verify",
+      headers: {
+        "content-type": "application/json"
+      },
+      data: JSON.stringify(data)
+    }) as any).data.response)
+    return {
+      shouldUpload: res.shouldUpload,
+      uploadedList: res.uploadedList
+    }
   }
 }
 
@@ -93,22 +110,13 @@ export default defineComponent({
       uploadState.percent = state.fileChunksDesc.map(fileChunkDesc => ({ ...fileChunkDesc, percent: 0 }))
     })
 
-    function transformByte (val: number) {
-      return Number((val / 1024 / 1024).toFixed(0))
-    }
-
-    const uploadPercent = computed(() => {
-      if (!uploadState.percent.length) return 0
-      const loaded = uploadState.percent
-        .map(item => item.size * item.percent)
-        .reduce((acc, cur) => acc + cur);
-      return parseInt((loaded / uploadState.size).toFixed(2));
+    const cubeWidth = computed(() => {
+      return Math.ceil(Math.sqrt(uploadState.percent.length))*16
     })
 
     return {
       uploadState,
-      uploadPercent,
-      transformByte,
+      cubeWidth,
 
       handleFileChange (e: { target: HTMLInputElement }) {
         uploadState.size = 0
@@ -120,11 +128,34 @@ export default defineComponent({
       },
 
       async handleUpload () {
-        uploadService.createFileChunk()
         await uploadService.uploadFileChunk()
+        uploadState.percent.forEach(el => el.percent = 100)
+
       },
     }
 
   }
 })
 </script>
+<style scoped>
+.cube-container {
+  width: 100px;
+  overflow: hidden;
+}
+.cube {
+  width: 16px;
+  height: 16px;
+  line-height: 12px;
+  border: 1px solid black;
+  background:  #eee;
+  float: left;
+}
+
+.cube>.success {
+  background: #67C23A;
+}
+
+.cube>.uploading {
+  background: #409EFF;
+}
+</style>

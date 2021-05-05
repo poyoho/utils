@@ -3,6 +3,7 @@
   "author": "poyoho",
   "description": "A Library for shared",
   "scripts": {
+    "serve": "cd playground/serve && yarn && yarn dev",
     "vue": "cd playground/vue && yarn && yarn dev",
     "react": "cd playground/react && yarn && yarn dev",
     "bootstrap": "lerna bootstrap",
