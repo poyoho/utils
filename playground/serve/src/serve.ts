@@ -9,25 +9,29 @@ const server = http.createServer()
 const UPLOAD_DIR = path.resolve(__dirname, "..", "save")
 const extractExt = (filename: string) => filename.slice(filename.lastIndexOf("."), filename.length)
 
-const pipeStream = (path: string, writeStream: fs.WriteStream) => {
+const pipeStream = (path: string, ws: fs.WriteStream) => {
   return new Promise(resolve => {
     const rs = fs.createReadStream(path)
     rs.on("end", () => {
       fs.unlinkSync(path)
       resolve(null)
     })
-    rs.pipe(writeStream)
+    rs.pipe(ws)
   })
 }
 
-const mergeFileChunk = async (filePath: string, filehash: string, size: number) => {
+const mergeFileChunk = async (filePath: string, filehash: string) => {
   const chunkDir = path.resolve(UPLOAD_DIR, filehash)
   const chunkPaths = await fs.readdir(chunkDir)
-  chunkPaths.sort((a, b) => a.split("-")[1].localeCompare(b.split("-")[1]))
-  await Promise.all(chunkPaths.map((chunkPath, idx) => pipeStream(
-    path.resolve(chunkDir, chunkPath),
-    fs.createWriteStream(filePath, { start: idx * size })
-  )))
+  await Promise.all(chunkPaths.map((chunkPath, idx) => {
+    const _chunkPath = path.resolve(chunkDir, chunkPath)
+    const fileStat = fs.statSync(_chunkPath)
+    console.log(chunkPath, idx, fileStat.size)
+    return pipeStream(
+      _chunkPath,
+      fs.createWriteStream(filePath, { start: idx * 10 * 1024 })
+    )
+  }))
   fs.rmdirSync(chunkDir)
 }
 
@@ -54,7 +58,7 @@ server.on("request", async (req, res) => {
   if (req.url === "/merge") {
     const data = await resolvePost(req)
     console.log('/merge', data)
-    const { filename, filehash, size } = data
+    const { filename, filehash } = data
     const ext = extractExt(filename)
     const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
     res.end(
@@ -63,7 +67,7 @@ server.on("request", async (req, res) => {
         message: "file merged success"
       })
       )
-    await mergeFileChunk(filePath, filehash, size)
+    await mergeFileChunk(filePath, filehash)
     return
   } else if (req.url === "/upload") {
     const multipart = new multiparty.Form()

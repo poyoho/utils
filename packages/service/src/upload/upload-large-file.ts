@@ -1,6 +1,6 @@
 import { Subject } from "rxjs"
-import Spark from "spark-md5"
-import { PromiseTryAllWithMax } from "@poyoho/shared-service"
+import { HashHelper, genHashType } from "./hash"
+import { UploadHelper } from "./upload"
 
 // file chunk
 export interface FileChunk {
@@ -19,7 +19,6 @@ export interface FileChunkDesc {
 
 // merge file chunk params
 export interface FileMergeParams {
-  size: number
   filename: string
   filehash: string
 }
@@ -44,8 +43,6 @@ export interface UploadFileParams extends FileChunk {
   filehash: string
 }
 
-export type genHashType = "worker" | "webasm" | "none"
-
 export abstract class UploadLargeFile {
   private state: UploadLargeFileState = {
     file: null,
@@ -60,6 +57,10 @@ export abstract class UploadLargeFile {
     this.shardState.hashPercent = hashPercent
     this.event.next({ ...this.shardState })
   })
+
+  // upload chunks helper
+  private uploadHelper = new UploadHelper()
+
   abstract uploadAPI (data: UploadFileParams): Promise<any>
   abstract mergeAPI (data: FileMergeParams): Promise<any>
   abstract verifyAPI (data: verifyUploadFileParamas): Promise<{
@@ -74,7 +75,7 @@ export abstract class UploadLargeFile {
     private sparkMd5CDN: string,
     private maxConnection = 4,
     private tryRequest = 3,
-    public SIZE = 100 * 1024 * 1024
+    public SIZE = 10 * 1024 // * 1024 * 1024
   ) {
     //
   }
@@ -95,16 +96,17 @@ export abstract class UploadLargeFile {
       filename: this.state.file.name,
       filehash,
     })
-    if (!shouldUpload) {
-      // reflush progress
-      this.shardState.fileChunksDesc = this.state.chunks.map(el => ({
-        percent: 102,
-        name: el.hash,
-        size: el.chunk.size
-      }))
-      this.event.next({ ...this.shardState })
-      return
-    }
+    // if (!shouldUpload) {
+    //   // reflush progress
+    //   this.shardState.fileChunksDesc = this.state.chunks.map(el => ({
+    //     percent: 102,
+    //     name: el.hash,
+    //     size: el.chunk.size
+    //   }))
+    //   this.event.next({ ...this.shardState })
+    //   return
+    // }
+    // uploading
     const fileChunksDesc: FileChunkDesc[] = []
     const uploadChunks = this.state.chunks
       .filter(el => {
@@ -127,8 +129,9 @@ export abstract class UploadLargeFile {
       .map(formData => () => this.uploadAPI({ ...formData, filehash }))
     this.shardState.fileChunksDesc = fileChunksDesc
     this.event.next({ ...this.shardState })
-    await PromiseTryAllWithMax(uploadChunks, this.maxConnection, this.tryRequest)
-    await this.mergeAPI({ size: this.SIZE, filename: this.state.file.name, filehash })
+    await this.uploadHelper.tryAllWithMax(uploadChunks, this.maxConnection, this.tryRequest)
+
+    await this.mergeAPI({ filename: this.state.file.name, filehash })
     this.shardState.fileChunksDesc = fileChunksDesc.map(el => (el.percent = 102) && el)
     this.event.next({ ...this.shardState })
   }
@@ -146,106 +149,5 @@ export abstract class UploadLargeFile {
       filename: this.state.file.name,
       hash: this.state.file.name + "-" + index
     }))
-  }
-}
-
-
-class HashHelper {
-
-  constructor(private cb?: (percent: number) => void) {}
-
-  public genHash (
-    type: genHashType,
-    chunks: FileChunk[],
-    sparkMd5CDN?: string
-  ) {
-    switch(type) {
-      case "none": return this.genHashByNone(chunks)
-      case "worker":
-        if (!sparkMd5CDN) throw "must had sparkMd5CDN!"
-        return this.genHashByWorker(chunks, sparkMd5CDN)
-      case "webasm":
-        return this.genHashByASM(chunks)
-    }
-  }
-
-  // generate file content hash
-  private genHashByNone (chunks: FileChunk[]): Promise<string> {
-    const spark = new Spark.ArrayBuffer()
-    let count = 0
-    function loadFileChunk () {
-      return new Promise(resolve => {
-        const reader = new FileReader()
-        reader.readAsArrayBuffer(chunks[count].chunk)
-        reader.onload = (e: ProgressEvent<FileReader>) => {
-          spark.append(e.target.result as globalThis.ArrayBuffer)
-          if (count === chunks.length - 1) {
-            this.cb(100)
-            resolve(spark.end())
-          } else {
-            this.cb(count * 100 / chunks.length)
-            count++
-            resolve(loadFileChunk())
-          }
-        }
-      })
-    }
-    return loadFileChunk() as Promise<string>
-  }
-
-  // by worker
-  private genHashByWorker (chunks: FileChunk[], sparkMd5CDN: string): Promise<string> {
-    // string function
-    function _worker () {
-      this.onmessage = (e) => {
-        const { fileChunks } = e.data
-        const spark = new this.SparkMD5.ArrayBuffer();
-        let count = 0
-        function loadFileChunk () {
-          const reader = new FileReader()
-          reader.readAsArrayBuffer(fileChunks[count].chunk)
-          reader.onload = (e) => {
-            spark.append(e.target.result as globalThis.ArrayBuffer)
-            if (count === fileChunks.length - 1) {
-              this.postMessage({
-                percent: 100,
-                hash: spark.end()
-              })
-            } else {
-              this.postMessage({
-                percent: count * 100 / fileChunks.length,
-              })
-              count++
-              loadFileChunk()
-            }
-          }
-        }
-        loadFileChunk()
-      }
-    }
-    return new Promise(resolve => {
-      const workerData = new Blob(
-        [`self.importScripts("${sparkMd5CDN}");\n` + `(${_worker.toString()})()`],
-        { type: "text/javascript" }
-      )
-      const worker = new Worker(URL.createObjectURL(workerData))
-      const spark = new Spark.ArrayBuffer()
-      worker.postMessage({
-        fileChunks: chunks,
-        fileSpark: spark
-      })
-      worker.onmessage = (e) => {
-        if (e.data.percent === 100) {
-          resolve(e.data.hash)
-        }
-        this.cb(e.data.percent)
-      }
-    })
-  }
-
-  // by request idle callback
-  private async genHashByASM (chunks: FileChunk[]): Promise<string> {
-    // TODO
-    return ""
   }
 }
