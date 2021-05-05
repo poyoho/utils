@@ -27,7 +27,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, reactive } from "vue"
-import { UploadLargeFile, UploadParams, MergeParams, verifyUploadParamas } from "@poyoho/shared-service"
+import { UploadLargeFile, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service"
 
 export function request({
   url,
@@ -61,7 +61,7 @@ class UploadService extends UploadLargeFile {
 
   public requestList = []
 
-  uploadAPI (data: UploadParams) {
+  uploadAPI (data: UploadFileParams) {
     const formData = new FormData()
     formData.append("chunk", data.chunk)
     formData.append("hash", data.hash)
@@ -75,7 +75,7 @@ class UploadService extends UploadLargeFile {
     })
   }
 
-  mergeAPI (data: MergeParams) {
+  mergeAPI (data: FileMergeParams) {
     return request({
       url: "http://localhost:3000/merge",
       headers: {
@@ -85,7 +85,7 @@ class UploadService extends UploadLargeFile {
     })
   }
 
-  async verifyAPI (data: verifyUploadParamas) {
+  async verifyAPI (data: verifyUploadFileParamas) {
     const res = JSON.parse((await request({
       url: "http://localhost:3000/verify",
       headers: {

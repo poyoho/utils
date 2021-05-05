@@ -16,7 +16,7 @@ export interface FileChunkDesc {
 }
 
 // merge file chunk params
-export interface MergeParams {
+export interface FileMergeParams {
   size: number
   filename: string
   filehash: string
@@ -33,12 +33,12 @@ export interface UploadFileServiceShareState {
   hashPercent: number
 }
 
-export interface verifyUploadParamas {
+export interface verifyUploadFileParamas {
   filename: string
   filehash: string
 }
 
-export interface UploadParams extends FileChunk {
+export interface UploadFileParams extends FileChunk {
   filehash: string
 }
 
@@ -58,9 +58,9 @@ export abstract class UploadLargeFile {
     this.shardState.hashPercent = hashPercent
     this.event.next({ ...this.shardState })
   })
-  abstract uploadAPI (data: UploadParams): Promise<any>
-  abstract mergeAPI (data: MergeParams): Promise<any>
-  abstract verifyAPI (data: verifyUploadParamas): Promise<{
+  abstract uploadAPI (data: UploadFileParams): Promise<any>
+  abstract mergeAPI (data: FileMergeParams): Promise<any>
+  abstract verifyAPI (data: verifyUploadFileParamas): Promise<{
     shouldUpload: boolean,
     uploadedList: string[]
   }>
