@@ -2,6 +2,8 @@
   <div>
    <input type="file" @change="handleFileChange" />
    <el-button @click="handleUpload">上传</el-button>
+   <el-button @click="handleStop">暂停</el-button>
+   <el-button @click="handleUpload">恢复</el-button>
   </div>
   <div class="cube-container" :style="{width:cubeWidth+'px'}">
     <div class="cube"
@@ -10,7 +12,8 @@
       <div
         :class="{
         'uploading':chunk.percent>0&&chunk.percent<100,
-        'success':chunk.percent===100
+        'success':chunk.percent===100,
+        'pass':chunk.percent===101
         }"
         :style="{height:chunk.percent+'%'}"
         >
@@ -29,10 +32,12 @@ export function request({
   method = "post",
   data,
   headers = {},
+  requestList = [],
   onProgress = (_: ProgressEvent) => {},
 }) {
   return new Promise(resolve => {
     const xhr = new XMLHttpRequest()
+    requestList.push(xhr)
     xhr.upload.onprogress = onProgress
     xhr.open(method, url);
     Object.keys(headers).forEach(key =>
@@ -52,6 +57,8 @@ class UploadService extends UploadLargeFile {
     super("worker", "http://localhost:3050/spark-md5.min.js")
   }
 
+  public requestList = []
+
   uploadAPI (data: UploadParams) {
     const formData = new FormData()
     formData.append("chunk", data.chunk)
@@ -61,6 +68,7 @@ class UploadService extends UploadLargeFile {
     return request({
       url: "http://localhost:3000/upload",
       data: formData,
+      requestList: this.requestList,
       onProgress: (e) => this.onProgress(data.index, e)
     })
   }
@@ -88,6 +96,8 @@ class UploadService extends UploadLargeFile {
       uploadedList: res.uploadedList
     }
   }
+
+
 }
 
 interface percentState {
@@ -107,7 +117,7 @@ export default defineComponent({
     })
 
     uploadService.event.subscribe(state => {
-      uploadState.percent = state.fileChunksDesc.map(fileChunkDesc => ({ ...fileChunkDesc, percent: 0 }))
+      uploadState.percent = state.fileChunksDesc
     })
 
     const cubeWidth = computed(() => {
@@ -129,9 +139,13 @@ export default defineComponent({
 
       async handleUpload () {
         await uploadService.uploadFileChunk()
-        uploadState.percent.forEach(el => el.percent = 100)
-
       },
+
+      handleStop () {
+        uploadService.requestList.forEach(xhr => xhr?.abort())
+        uploadService.requestList = []
+      },
+
     }
 
   }
@@ -157,5 +171,9 @@ export default defineComponent({
 
 .cube>.uploading {
   background: #409EFF;
+}
+
+.cube>.pass {
+  background: #666666;
 }
 </style>

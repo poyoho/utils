@@ -12,6 +12,7 @@ export interface FileChunk {
 export interface FileChunkDesc {
   name: string
   size: number
+  percent: number
 }
 
 // merge file chunk params
@@ -55,7 +56,7 @@ export abstract class UploadLargeFile {
   abstract mergeAPI (data: MergeParams): Promise<any>
   abstract verifyAPI (data: verifyUploadParamas): Promise<{
     shouldUpload: boolean,
-    uploadedList: number[]
+    uploadedList: string[]
   }>
 
   public event = new Subject<UploadFileServiceShareState>()
@@ -79,13 +80,6 @@ export abstract class UploadLargeFile {
     this.createFileChunk()
     if (!this.state.chunks.length) return
     const filehash = await this.hashHelper.genHash(this.genHashType, this.state.chunks, this.sparkMd5CDN)
-    const lastUploadedFiles = JSON.parse(sessionStorage.getItem("uploadedFiles") || "[]") as Array<string>
-    // local cache uploaded files
-    if (lastUploadedFiles.includes(filehash)) {
-      return
-    }
-    lastUploadedFiles.push(filehash)
-    sessionStorage.setItem("uploadedFiles", JSON.stringify(lastUploadedFiles))
     // network cache uploaded files
     const { shouldUpload, uploadedList } = await this.verifyAPI({
       filename: this.state.file.name,
@@ -94,9 +88,30 @@ export abstract class UploadLargeFile {
     if (!shouldUpload) {
       return
     }
-    await Promise.all(
-      this.state.chunks.map(formData => this.uploadAPI({ ...formData, filehash }))
-    )
+    const fileChunksDesc: FileChunkDesc[] = []
+
+    const uploadChunks = this.state.chunks
+      .filter(el => {
+        if (uploadedList.includes(el.hash)) {
+          fileChunksDesc.push({
+            name: el.hash,
+            size: el.chunk.size,
+            percent: 101
+          })
+          return false
+        } else {
+          fileChunksDesc.push({
+            name: el.hash,
+            size: el.chunk.size,
+            percent: 0
+          })
+          return true
+        }
+      })
+      .map(formData => this.uploadAPI({ ...formData, filehash }))
+
+    this.event.next({ ...this.shardState, fileChunksDesc })
+    await Promise.all(uploadChunks)
     await this.mergeAPI({ size: this.SIZE, filename: this.state.file.name, filehash })
   }
 
@@ -113,13 +128,6 @@ export abstract class UploadLargeFile {
       filename: this.state.file.name,
       hash: this.state.file.name + "-" + index
     }))
-    this.event.next({
-      ...this.shardState,
-      fileChunksDesc: this.state.chunks.map(fileChunk => ({
-        name: fileChunk.hash,
-        size: fileChunk.chunk.size,
-      }))
-    })
   }
 }
 
