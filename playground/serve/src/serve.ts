@@ -57,13 +57,13 @@ server.on("request", async (req, res) => {
     const { filename, filehash, size } = data
     const ext = extractExt(filename)
     const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
-    await mergeFileChunk(filePath, filehash, size)
     res.end(
       JSON.stringify({
         code: 0,
         message: "file merged success"
       })
-    )
+      )
+    await mergeFileChunk(filePath, filehash, size)
     return
   } else if (req.url === "/upload") {
     const multipart = new multiparty.Form()

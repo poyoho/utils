@@ -5,6 +5,7 @@
    <el-button @click="handleStop">暂停</el-button>
    <el-button @click="handleUpload">恢复</el-button>
   </div>
+  <el-progress :percentage="uploadState.hashPercent"></el-progress>
   <div class="cube-container" :style="{width:cubeWidth+'px'}">
     <div class="cube"
       v-for="chunk in uploadState.percent"
@@ -12,8 +13,9 @@
       <div
         :class="{
         'uploading':chunk.percent>0&&chunk.percent<100,
-        'success':chunk.percent===100,
-        'pass':chunk.percent===101
+        'uploaded':chunk.percent===100,
+        'pass':chunk.percent===101,
+        'success':chunk.percent===102,
         }"
         :style="{height:chunk.percent+'%'}"
         >
@@ -53,7 +55,7 @@ export function request({
 }
 
 class UploadService extends UploadLargeFile {
-  constructor (private onProgress: (idx: number, e: ProgressEvent<EventTarget>) => void) {
+  constructor (private onProgress: (idx: number, e: ProgressEvent<EventTarget>) => void = () => {}) {
     super("worker", "http://localhost:3050/spark-md5.min.js")
   }
 
@@ -96,8 +98,6 @@ class UploadService extends UploadLargeFile {
       uploadedList: res.uploadedList
     }
   }
-
-
 }
 
 interface percentState {
@@ -111,12 +111,14 @@ export default defineComponent({
     const uploadState = reactive({
       size: 0,
       percent: [] as percentState[],
+      hashPercent: 0,
     })
     const uploadService = new UploadService((idx, e) => {
       uploadState.percent[idx].percent = parseInt(String((e.loaded / e.total) * 100))
     })
 
     uploadService.event.subscribe(state => {
+      uploadState.hashPercent = Math.ceil(state.hashPercent)
       uploadState.percent = state.fileChunksDesc
     })
 
@@ -125,8 +127,8 @@ export default defineComponent({
     })
 
     return {
-      uploadState,
       cubeWidth,
+      uploadState,
 
       handleFileChange (e: { target: HTMLInputElement }) {
         uploadState.size = 0
@@ -164,13 +166,16 @@ export default defineComponent({
   background:  #eee;
   float: left;
 }
-
-.cube>.success {
-  background: #67C23A;
-}
-
 .cube>.uploading {
   background: #409EFF;
+}
+
+.cube>.uploaded {
+  background: #3a97c2;
+}
+
+.cube>.success {
+  background: #45c23a;
 }
 
 .cube>.pass {

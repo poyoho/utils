@@ -30,6 +30,7 @@ export interface UploadLargeFileState {
 
 export interface UploadFileServiceShareState {
   fileChunksDesc: FileChunkDesc[]
+  hashPercent: number
 }
 
 export interface verifyUploadParamas {
@@ -41,7 +42,7 @@ export interface UploadParams extends FileChunk {
   filehash: string
 }
 
-export type genHashType = "worker" | "requestIdleCallback" | "none"
+export type genHashType = "worker" | "webasm" | "none"
 
 export abstract class UploadLargeFile {
   private state: UploadLargeFileState = {
@@ -49,9 +50,14 @@ export abstract class UploadLargeFile {
     chunks: []
   }
   private shardState: UploadFileServiceShareState = {
-    fileChunksDesc: []
+    hashPercent: 0,
+    fileChunksDesc: [],
   }
-  private hashHelper = new HashHelper()
+  // calc file hash helper
+  private hashHelper = new HashHelper((hashPercent) => {
+    this.shardState.hashPercent = hashPercent
+    this.event.next({ ...this.shardState })
+  })
   abstract uploadAPI (data: UploadParams): Promise<any>
   abstract mergeAPI (data: MergeParams): Promise<any>
   abstract verifyAPI (data: verifyUploadParamas): Promise<{
@@ -86,10 +92,16 @@ export abstract class UploadLargeFile {
       filehash,
     })
     if (!shouldUpload) {
+      // reflush progress
+      this.shardState.fileChunksDesc = this.state.chunks.map(el => ({
+        percent: 102,
+        name: el.hash,
+        size: el.chunk.size
+      }))
+      this.event.next({ ...this.shardState })
       return
     }
     const fileChunksDesc: FileChunkDesc[] = []
-
     const uploadChunks = this.state.chunks
       .filter(el => {
         if (uploadedList.includes(el.hash)) {
@@ -109,10 +121,12 @@ export abstract class UploadLargeFile {
         }
       })
       .map(formData => this.uploadAPI({ ...formData, filehash }))
-
-    this.event.next({ ...this.shardState, fileChunksDesc })
+    this.shardState.fileChunksDesc = fileChunksDesc
+    this.event.next({ ...this.shardState })
     await Promise.all(uploadChunks)
     await this.mergeAPI({ size: this.SIZE, filename: this.state.file.name, filehash })
+    this.shardState.fileChunksDesc = fileChunksDesc.map(el => (el.percent = 102) && el)
+    this.event.next({ ...this.shardState })
   }
 
   // chunk large file
@@ -134,6 +148,8 @@ export abstract class UploadLargeFile {
 
 class HashHelper {
 
+  constructor(private cb?: (percent: number) => void) {}
+
   public genHash (
     type: genHashType,
     chunks: FileChunk[],
@@ -144,8 +160,8 @@ class HashHelper {
       case "worker":
         if (!sparkMd5CDN) throw "must had sparkMd5CDN!"
         return this.genHashByWorker(chunks, sparkMd5CDN)
-      case "requestIdleCallback":
-        return this.genHashByRIC(chunks)
+      case "webasm":
+        return this.genHashByASM(chunks)
     }
   }
 
@@ -160,8 +176,10 @@ class HashHelper {
         reader.onload = (e: ProgressEvent<FileReader>) => {
           spark.append(e.target.result as globalThis.ArrayBuffer)
           if (count === chunks.length - 1) {
+            this.cb(100)
             resolve(spark.end())
           } else {
+            this.cb(count * 100 / chunks.length)
             count++
             resolve(loadFileChunk())
           }
@@ -186,9 +204,13 @@ class HashHelper {
             spark.append(e.target.result as globalThis.ArrayBuffer)
             if (count === fileChunks.length - 1) {
               this.postMessage({
+                percent: 100,
                 hash: spark.end()
               })
             } else {
+              this.postMessage({
+                percent: count * 100 / fileChunks.length,
+              })
               count++
               loadFileChunk()
             }
@@ -209,13 +231,16 @@ class HashHelper {
         fileSpark: spark
       })
       worker.onmessage = (e) => {
-        resolve(e.data.hash)
+        if (e.data.percent === 100) {
+          resolve(e.data.hash)
+        }
+        this.cb(e.data.percent)
       }
     })
   }
 
   // by request idle callback
-  private async genHashByRIC (chunks: FileChunk[]): Promise<string> {
+  private async genHashByASM (chunks: FileChunk[]): Promise<string> {
     // TODO
     return ""
   }
