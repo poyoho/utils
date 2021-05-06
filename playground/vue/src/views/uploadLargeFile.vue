@@ -65,6 +65,7 @@ class UploadService extends UploadLargeFile {
     const formData = new FormData()
     formData.append("chunk", data.chunk)
     formData.append("hash", data.hash)
+    formData.append("index", data.index.toString())
     formData.append("filename", data.filename)
     formData.append("filehash", data.filehash)
     return request({

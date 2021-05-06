@@ -17,12 +17,6 @@ export interface FileChunkDesc {
   percent: number
 }
 
-// merge file chunk params
-export interface FileMergeParams {
-  filename: string
-  filehash: string
-}
-
 // this service save state
 export interface UploadLargeFileState {
   file: File
@@ -34,12 +28,19 @@ export interface UploadFileServiceShareState {
   hashPercent: number
 }
 
-export interface verifyUploadFileParamas {
+
+export interface UploadFileParams extends FileChunk {
+  filehash: string
+}
+
+// merge file chunk params
+export interface FileMergeParams {
   filename: string
   filehash: string
 }
 
-export interface UploadFileParams extends FileChunk {
+export interface verifyUploadFileParamas {
+  filename: string
   filehash: string
 }
 
@@ -75,7 +76,7 @@ export abstract class UploadLargeFile {
     private sparkMd5CDN: string,
     private maxConnection = 4,
     private tryRequest = 3,
-    public SIZE = 1024 // * 1024 * 1024
+    public SIZE = 10 * 1024 * 1024
   ) {
     //
   }
@@ -96,16 +97,16 @@ export abstract class UploadLargeFile {
       filename: this.state.file.name,
       filehash,
     })
-    // if (!shouldUpload) {
-    //   // reflush progress
-    //   this.shardState.fileChunksDesc = this.state.chunks.map(el => ({
-    //     percent: 102,
-    //     name: el.hash,
-    //     size: el.chunk.size
-    //   }))
-    //   this.event.next({ ...this.shardState })
-    //   return
-    // }
+    if (!shouldUpload) {
+      // reflush progress
+      this.shardState.fileChunksDesc = this.state.chunks.map(el => ({
+        percent: 102,
+        name: el.hash,
+        size: el.chunk.size
+      }))
+      this.event.next({ ...this.shardState })
+      return
+    }
     // uploading
     const fileChunksDesc: FileChunkDesc[] = []
     const uploadChunks = this.state.chunks

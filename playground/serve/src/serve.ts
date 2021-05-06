@@ -9,30 +9,31 @@ const server = http.createServer()
 const UPLOAD_DIR = path.resolve(__dirname, "..", "save")
 const extractExt = (filename: string) => filename.slice(filename.lastIndexOf("."), filename.length)
 
-const pipeStream = (path: string, writeStream: fs.WriteStream) => {
+const pipeStream = (path: string, ws: fs.WriteStream) => {
   return new Promise(resolve => {
     const rs = fs.createReadStream(path)
-    rs.pipe(writeStream, { end: true })
     rs.on("end", () => {
       fs.unlinkSync(path)
       resolve(null)
     })
+    rs.pipe(ws)
   })
 }
 
 const mergeFileChunk = async (filePath: string, filehash: string) => {
-  const chunkDir = path.resolve(UPLOAD_DIR, filehash)
-  const chunkPaths = await fs.readdir(chunkDir)
-  // TODO sort chunkPaths
   let startIdx = 0
-  await Promise.all(chunkPaths.map((chunkPath) => {
+  const chunkDir = path.resolve(UPLOAD_DIR, filehash)
+  // in order to ensure the correct combination
+  const chunkPaths = (await fs.readdir(chunkDir))
+    .sort((a, b) =>  Number(/.*-(\d*)/.exec(a)[1]) - Number(/.*-(\d*)/.exec(b)[1]))
+  const mergeTask = chunkPaths.map((chunkPath) => {
     const _chunkPath = path.resolve(chunkDir, chunkPath)
     const fileStat = fs.statSync(_chunkPath)
     const ws = fs.createWriteStream(filePath, { start: startIdx })
     startIdx += fileStat.size
-    console.log(startIdx)
     return pipeStream(_chunkPath, ws)
-  }))
+  })
+  await Promise.all(mergeTask)
   fs.rmdirSync(chunkDir)
 }
 
@@ -84,9 +85,10 @@ server.on("request", async (req, res) => {
       const [hash] = fields.hash
       const [filename] = fields.filename
       const [fileHash] = fields.filehash
+      const [index] = fields.index
       const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
       const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(filename)}`)
-      const chunkPath = path.resolve(chunkDir, hash)
+      const chunkPath = path.resolve(chunkDir, hash + "-" + index)
       if (fs.existsSync(filePath) || fs.existsSync(chunkPath)) {
         res.end("file exist")
         return

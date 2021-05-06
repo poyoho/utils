@@ -62,6 +62,7 @@ export function request({
 |-----|------|
 |chunk|文件切片|
 |hash|文件切片hash（简单区分切片文件）|
+|index|分片顺序|
 |filename|文件名|
 |filehash|整个文件的hash|
 
@@ -99,6 +100,7 @@ class UploadService extends UploadLargeFile {
     const formData = new FormData()
     formData.append("chunk", data.chunk)
     formData.append("hash", data.hash)
+    formData.append("index", data.index.toString())
     formData.append("filename", data.filename)
     formData.append("filehash", data.filehash)
     return request({
