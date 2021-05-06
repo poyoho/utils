@@ -47,7 +47,7 @@ export class HashHelper {
       }
     }
     return new Promise(resolve => {
-      const spark = new URL("./third/spark-md5.min.js", import.meta.url)
+      const spark = new URL("../third/spark-md5.min.js", import.meta.url)
 
       const workerData = new Blob(
         [`self.importScripts("${spark}");\n` + `(${_worker.toString()})()`],
