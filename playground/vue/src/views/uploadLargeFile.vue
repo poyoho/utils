@@ -56,7 +56,7 @@ export function request({
 
 class UploadService extends UploadLargeFile {
   constructor (private onProgress: (idx: number, e: ProgressEvent<EventTarget>) => void = () => {}) {
-    super("worker", "http://localhost:3050/spark-md5.min.js")
+    super("worker")
   }
 
   public requestList = []

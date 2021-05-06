@@ -73,7 +73,6 @@ export abstract class UploadLargeFile {
 
   constructor (
     private genHashType: genHashType,
-    private sparkMd5CDN: string,
     private maxConnection = 4,
     private tryRequest = 3,
     public SIZE = 10 * 1024 * 1024
@@ -91,7 +90,7 @@ export abstract class UploadLargeFile {
   public async uploadFileChunk () {
     this.createFileChunk()
     if (!this.state.chunks.length) return
-    const filehash = await this.hashHelper.genHash(this.genHashType, this.state.chunks, this.sparkMd5CDN)
+    const filehash = await this.hashHelper.genHash(this.genHashType, this.state.chunks)
     // network cache uploaded files
     const { shouldUpload, uploadedList } = await this.verifyAPI({
       filename: this.state.file.name,

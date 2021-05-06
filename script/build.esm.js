@@ -2,10 +2,10 @@ const path = require("path")
 const chalk = require("chalk")
 const rollup = require("rollup")
 const typescript = require("rollup-plugin-typescript2")
-const { terser } = require('rollup-plugin-terser')
+const { terser } = require("rollup-plugin-terser")
 const dts = require("rollup-plugin-dts")
 const { getPackagesSync } = require("@lerna/project")
-
+const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
 __dirname = path.join(__dirname, "..")
 
 async function build(pkgPath) {
@@ -27,6 +27,7 @@ async function build(pkgPath) {
         abortOnError: false,
         clean: true,
       }),
+      importMetaAssets(),
     ],
     external(id) {
       // 不打包deps的项目
