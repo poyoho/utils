@@ -5,8 +5,6 @@ const execa = require('execa')
 const args = require('minimist')(process.argv.slice(2))
 
 const isDryRun = args.dry
-const getWASMPkgRoot = pkg => path.resolve(__dirname, '../wasm/lib/', pkg)
-
 const run = (bin, args, opts = {}) =>
   execa(bin, args, { stdio: 'inherit', ...opts })
 const dryRun = (bin, args, opts = {}) =>
@@ -14,47 +12,42 @@ const dryRun = (bin, args, opts = {}) =>
 const runIfNotDry = isDryRun ? dryRun : run
 const step = msg => console.log(chalk.cyan(msg))
 
-async function buildWASMPackage(pkgname) {
-  const pkgRoot = getWASMPkgRoot(pkgname)
-  const opts = { cwd: pkgRoot, stdio: 'pipe' }
+const WASMPkgRoot = path.resolve(__dirname, '../wasm/')
+
+async function buildWASMPackage() {
+  const opts = { cwd: WASMPkgRoot, stdio: 'pipe' }
   try {
     await runIfNotDry(
-      'set',
-      ['"GOARCH"="wasm"'],
+      'wasm-pack',
+      ['build'],
       opts
     )
-    await runIfNotDry(
-      'set',
-      ['"GOOS"="js"',],
-      opts
-    )
-    await runIfNotDry(
-      'go',
-      ['build', '-o', `../../dist/${pkgname}.wasm`,],
-      opts
-    )
-    console.log(chalk.green(`Successfully build wasm/${pkgname}`))
+    console.log(chalk.green('Successfully build wasm'))
   } catch (e) {
     throw e
   }
 }
 
-async function copyWASMPackage(pkgname) {
-  await fs.copy(
-    path.resolve(__dirname, '../wasm/dist/', `${pkgname}.wasm`),
-    path.resolve(__dirname, '../packages/service/src/third/', `${pkgname}.wasm`),
-  )
-  console.log(chalk.green(`Successfully copy wasm/${pkgname}`))
+async function copyWASMPackage() {
+  async function copyDist(pkgname) {
+    await fs.copy(
+      path.resolve(__dirname, '../wasm/pkg/', pkgname),
+      path.resolve(__dirname, '../packages/service/src/third/wasm/', pkgname),
+    )
+  }
+  const copyTask = fs.readdirSync(path.resolve(__dirname, '../wasm/pkg/'))
+    .filter(p => /wasm.*/.test(p))
+    .map(path => copyDist(path))
+  await Promise.all(copyTask)
+  console.log(chalk.green(`Successfully copy wasm`))
 }
 
 async function main() {
-  const pkgname = "hash"
-
   step('\nBuilding wasm package...')
-  await buildWASMPackage(pkgname)
+  await buildWASMPackage()
 
   step('\nCopy wasm package to packages third...')
-  await copyWASMPackage(pkgname)
+  await copyWASMPackage()
 }
 
 main()
