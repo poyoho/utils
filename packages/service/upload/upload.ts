@@ -1,4 +1,4 @@
-import { PromiseTryAllWithMax } from "@poyoho/shared-service/lib/promise"
+import { PromiseTryAllWithMax } from "@poyoho/shared-service/promise"
 
 export class UploadHelper {
 

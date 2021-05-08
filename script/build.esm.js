@@ -80,10 +80,12 @@ async function builddts(pkgPath) {
 // services
 function main() {
   const name = "service"
-  build(name, "lib/diff")
-  build(name, "lib/pagination-select")
-  build(name, "lib/promise")
-  build(name, "lib/upload")
+  const externalList = ["third", "index.ts", "package.json"]
+
+  const pkgPath = path.resolve(__dirname, `packages/${name}/`)
+  const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
+
+  subPaths.forEach(p => build(name, p))
   builddts(name)
 }
 
