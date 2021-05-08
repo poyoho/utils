@@ -55,11 +55,11 @@ async function load(module, imports) {
 
 async function init(input) {
     if (typeof input === 'undefined') {
-        input = new URL('wasm_bg.wasm', import.meta.url);
+        input = new URL('md5_bg.wasm', import.meta.url);
     }
     const imports = {};
     imports.wbg = {};
-    imports.wbg.__wbg_alert_f5393de24ed74e50 = function(arg0, arg1) {
+    imports.wbg.__wbg_alert_8e30bf44309c2980 = function(arg0, arg1) {
         alert(getStringFromWasm0(arg0, arg1));
     };
 
