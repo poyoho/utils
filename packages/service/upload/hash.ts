@@ -70,6 +70,7 @@ export class HashHelper {
   private async genHashByASM (chunks: FileChunk[]): Promise<string> {
     const wasm = await import("../third/wasm/wasm")
     await wasm.default()
+    wasm.greet()
     return ""
   }
 }

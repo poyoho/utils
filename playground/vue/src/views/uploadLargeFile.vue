@@ -27,7 +27,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, reactive } from "vue"
-import { UploadLargeFile, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service"
+import { UploadLargeFile, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service/upload"
 
 export function request({
   url,
