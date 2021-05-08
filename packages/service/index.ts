@@ -1,3 +1,3 @@
-export * from "./src/pagination-select"
-export * from "./src/upload"
-export * from "./src/promise"
+export * from "./lib/pagination-select"
+export * from "./lib/upload"
+export * from "./lib/promise"

@@ -1,6 +1,6 @@
 import { FileChunk } from "./upload-large-file"
 
-export type genHashType = "worker" | "webasm"
+export type genHashType = "worker" | "wasm"
 export class HashHelper {
   constructor(private cb?: (percent: number) => void) {}
 
@@ -11,7 +11,7 @@ export class HashHelper {
     switch(type) {
       case "worker":
         return this.genHashByWorker(chunks)
-      case "webasm":
+      case "wasm":
         return this.genHashByASM(chunks)
     }
   }
@@ -68,7 +68,8 @@ export class HashHelper {
 
   // by request idle callback
   private async genHashByASM (chunks: FileChunk[]): Promise<string> {
-    // TODO
+    const wasm = await import("../third/wasm/wasm")
+    await wasm.default()
     return ""
   }
 }

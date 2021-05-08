@@ -19,7 +19,11 @@ async function buildWASMPackage() {
   try {
     await runIfNotDry(
       'wasm-pack',
-      ['build'],
+      [
+        'build',
+        "--target",
+        "web"
+      ],
       opts
     )
     console.log(chalk.green('Successfully build wasm'))
