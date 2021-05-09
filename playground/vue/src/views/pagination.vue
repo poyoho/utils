@@ -38,7 +38,7 @@
 <script lang="ts">
 import { defineComponent, reactive, ref, nextTick } from "vue"
 import { request, RetType, Query } from "../../../mock/requestData"
-import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service"
+import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service/pagination-select"
 
 class SelectedService extends PaginationSelect<Query, RetType> {
   useFetchDataKey () {

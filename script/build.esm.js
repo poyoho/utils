@@ -2,17 +2,17 @@ const path = require("path")
 const chalk = require("chalk")
 const rollup = require("rollup")
 const typescript = require("rollup-plugin-typescript2")
-const { terser } = require('rollup-plugin-terser')
+const { terser } = require("rollup-plugin-terser")
 const dts = require("rollup-plugin-dts")
-const { getPackagesSync } = require("@lerna/project")
-
+const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
+const fs = require("fs-extra")
 __dirname = path.join(__dirname, "..")
 
-async function build(pkgPath) {
+async function build(pkgPath, subPath) {
   const pkgs = require(path.resolve(__dirname, `packages/${pkgPath}/package.json`)).peerDependencies || {}
   const deps = Object.keys(pkgs)
   const esm = await rollup.rollup({
-    input: path.resolve(__dirname, `packages/${pkgPath}/index.ts`),
+    input: path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`),
     plugins: [
       typescript({
         tsconfigOverride: {
@@ -27,18 +27,19 @@ async function build(pkgPath) {
         abortOnError: false,
         clean: true,
       }),
+      importMetaAssets(),
     ],
     external(id) {
       // 不打包deps的项目
       return deps.some(k => new RegExp("^" + k).test(id))
-        || /^@poyoho\/shared-/.test(id) // 不打包packages的包
+      || /^@poyoho\/shared-/.test(id) // 不打包packages的包
     },
   })
-  console.log(chalk.green(`${pkgPath} done`))
   await esm.write({
     format: "es",
-    file: path.resolve(__dirname, `packages/${pkgPath}/dist/index.js`),
+    dir: path.resolve(__dirname, `packages/${pkgPath}/dist/${subPath}`),
   })
+  console.log(chalk.green(`${subPath} done`))
 }
 
 async function builddts(pkgPath) {
@@ -47,32 +48,46 @@ async function builddts(pkgPath) {
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/index.ts`),
     plugins: [
-      dts.default({
-        compilerOptions: {
-          abortOnError: false,
+      typescript({
+        // 修改tsconfig配置
+        tsconfigOverride: {
+          "include": [
+            "packages/**/*",
+          ],
+          "exclude": [
+            "node_modules",
+            "packages/**/__tests__/*",
+          ],
         },
         abortOnError: false,
       }),
+      importMetaAssets(),
     ],
     external(id) {
       // 不打包deps的项目
       return deps.some(k => new RegExp("^" + k).test(id))
-        || /^@poyoho\/shared-/.test(id) // 不打包packages的包
     },
   })
-  console.log(chalk.blueBright(`${pkgPath} dts done`))
+  const outputDir = path.resolve(__dirname, `packages/${pkgPath}/dist/`)
   await esm.write({
-    file: path.resolve(__dirname, `packages/${pkgPath}/dist/index.d.ts`),
+    dir: outputDir,
     format: "es",
   })
+  fs.move(path.join(outputDir, "index.js"), path.join(outputDir, "indes.esm.js"))
+  console.log(chalk.blueBright(`${pkgPath} dts done`))
 }
 
-const inputs = getPackagesSync()
-  .map(pkg => pkg.name)
-  .filter(name => name.includes('@poyoho/shared-'))
+// services
+function main() {
+  const name = "service"
+  const externalList = ["third", "index.ts", "package.json"]
 
-inputs.forEach(pkg => {
-  const name = pkg.split('@poyoho/shared-')[1]
-  build(name)
+  const pkgPath = path.resolve(__dirname, `packages/${name}/`)
+  const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
+
+  subPaths.forEach(p => build(name, p))
   builddts(name)
-})
+}
+
+main()
+

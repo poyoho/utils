@@ -4,10 +4,10 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@poyoho/shared-service": "link:../../packages/service/",
     "element-plus": "^1.0.2-beta.40",
     "vue": "^3.0.4",
-    "vue-router": "^4.0.0-rc.2",
-    "@poyoho/shared-service": "link:../../packages/service/"
+    "vue-router": "^4.0.0-rc.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^1.0.4",
