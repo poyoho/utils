@@ -3,12 +3,20 @@
 /**
 */
 export function greet(): void;
+/**
+* @param {any} data
+* @returns {any}
+*/
+export function hash(data: any): any;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly greet: () => void;
+  readonly hash: (a: number) => number;
+  readonly __wbindgen_malloc: (a: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
 }
 
 /**

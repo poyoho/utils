@@ -68,9 +68,10 @@ export class HashHelper {
 
   // by request idle callback
   private async genHashByASM (chunks: FileChunk[]): Promise<string> {
-    const wasm = await import("../third/wasm/md5/md5")
+    const wasm = await import("../third/wasm/hash/hash")
     await wasm.default()
     wasm.greet()
+    console.log(wasm.hash("hello world"))
     return ""
   }
 }

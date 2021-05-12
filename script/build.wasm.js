@@ -48,7 +48,7 @@ async function copyWASMPackage(name) {
 }
 
 async function main() {
-  const name = "md5"
+  const name = "hash"
   step('\nBuilding wasm package...')
   await buildWASMPackage(name)
 
