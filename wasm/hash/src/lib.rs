@@ -1,5 +1,7 @@
 use wasm_bindgen::prelude::*;
 use js_sys::*;
+extern crate web_sys;
+use md5;
 
 pub fn set_panic_hook() {
   // When the `console_error_panic_hook` feature is enabled, we can call the
@@ -25,8 +27,8 @@ extern "C" {
     fn log(s: &str);
     #[wasm_bindgen(js_namespace = console)]
     fn error(s: &str);
-    #[wasm_bindgen(js_namespace = wx)]
-    fn showModal(param: &Object);
+    #[wasm_bindgen]
+    fn alert(s: &str);
 }
 
 #[wasm_bindgen]
@@ -34,12 +36,37 @@ pub fn greet() {
   log("Hello, rust-webasm-template!");
 }
 
-use md5;
+
+// #[wasm_bindgen]
+// pub extern "C" fn hash(data: &[u8]) -> JsString {
+//   let mut ctx = md5::Context::new();
+//   ctx.consume(data);
+//   let digest = ctx.compute();
+//   let hex: JsString = JsString::from(format!("{:x}", digest).as_str());
+//   JsString::from(hex)
+// }
 
 #[wasm_bindgen]
-pub fn hash(data: JsValue) -> JsValue {
-  let data: String = JsString::from(data).into();
-  let digest = md5::compute(data.as_bytes());
-  let hex: JsString = JsString::from(format!("{:x}", digest).as_str());
-  JsValue::from(JsString::from(hex))
+pub struct HashHelper {
+  ctx: md5::Context,
+}
+
+
+#[wasm_bindgen]
+impl HashHelper {
+  pub fn new() -> HashHelper{
+    HashHelper {
+      ctx: md5::Context::new(),
+    }
+  }
+
+  pub fn append (&mut self, data: &[u8]) {
+    self.ctx.consume(data);
+  }
+
+  pub fn end(self) -> JsString {
+    let digest = self.ctx.compute();
+    let hex: JsString = JsString::from(format!("{:x}", digest).as_str());
+    JsString::from(hex)
+  }
 }

@@ -4,19 +4,33 @@
 */
 export function greet(): void;
 /**
-* @param {any} data
-* @returns {any}
 */
-export function hash(data: any): any;
+export class HashHelper {
+  free(): void;
+/**
+* @returns {HashHelper}
+*/
+  static new(): HashHelper;
+/**
+* @param {Uint8Array} data
+*/
+  append(data: Uint8Array): void;
+/**
+* @returns {string}
+*/
+  end(): string;
+}
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly greet: () => void;
-  readonly hash: (a: number) => number;
+  readonly __wbg_hashhelper_free: (a: number) => void;
+  readonly hashhelper_new: () => number;
+  readonly hashhelper_append: (a: number, b: number, c: number) => void;
+  readonly hashhelper_end: (a: number) => number;
   readonly __wbindgen_malloc: (a: number) => number;
-  readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
 }
 
 /**

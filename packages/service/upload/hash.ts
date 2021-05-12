@@ -66,12 +66,43 @@ export class HashHelper {
     })
   }
 
+  private genHashByNone (chunks: FileChunk[], hash: any, end: any): Promise<string> {
+    let count = 0
+    const loadFileChunk = () => {
+      return new Promise(resolve => {
+        const reader = new FileReader()
+        reader.readAsArrayBuffer(chunks[count].chunk)
+        reader.onload = (e: ProgressEvent<FileReader>) => {
+          hash(e.target.result)
+          if (count === chunks.length - 1) {
+            this.cb(100)
+            end()
+          } else {
+            this.cb(count * 100 / chunks.length)
+            count++
+            resolve(loadFileChunk())
+          }
+        }
+      })
+    }
+    return loadFileChunk() as Promise<string>
+  }
+
   // by request idle callback
   private async genHashByASM (chunks: FileChunk[]): Promise<string> {
     const wasm = await import("../third/wasm/hash/hash")
     await wasm.default()
     wasm.greet()
-    console.log(wasm.hash("hello world"))
-    return ""
+    const hashHelper = wasm.HashHelper.new()
+    this.genHashByNone(
+      chunks,
+      (data: any) => {
+        hashHelper.append(new Uint8Array(data))
+      },
+      () => {
+        console.log(hashHelper.end())
+      }
+    )
+    return "hash"
   }
 }
