@@ -91,7 +91,7 @@ export abstract class UploadLargeFile {
     this.createFileChunk()
     if (!this.state.chunks.length) return
     console.time("hash")
-    const filehash = await this.hashHelper.genHash(this.genHashType, this.state.chunks)
+    const filehash = await this.hashHelper.genHash(this.genHashType, this.state.file)
     console.timeEnd("hash")
     // network cache uploaded files
     const { shouldUpload, uploadedList } = await this.verifyAPI({
