@@ -16,41 +16,48 @@ export class HashHelper {
     }
   }
 
-  // by worker
-  private genHashByWorker (chunks: FileChunk[]): Promise<string> {
-    // string function
-    function _worker () {
-      this.onmessage = (e) => {
-        const { fileChunks } = e.data
-        const spark = new this.SparkMD5.ArrayBuffer();
-        let count = 0
-        function loadFileChunk () {
-          const reader = new FileReader()
-          reader.readAsArrayBuffer(fileChunks[count].chunk)
-          reader.onload = (e) => {
-            spark.append(e.target.result as globalThis.ArrayBuffer)
-            if (count === fileChunks.length - 1) {
-              this.postMessage({
-                percent: 100,
-                hash: spark.end()
-              })
-            } else {
-              this.postMessage({
-                percent: count * 100 / fileChunks.length,
-              })
-              count++
-              loadFileChunk()
-            }
+  // worker string function
+  private _worker (this: any) {
+    this.onmessage = (e) => {
+      const { fileChunks } = e.data
+      const spark = new this.SparkMD5.ArrayBuffer();
+      let count = 0
+      function loadFileChunk () {
+        const reader = new FileReader()
+        reader.readAsArrayBuffer(fileChunks[count].chunk)
+        reader.onload = (ev) => {
+          console.time("chunk");
+          spark.append(new Uint8Array(ev.target.result as any))
+          console.timeEnd("chunk");
+          if (count === fileChunks.length - 1) {
+            this.postMessage({
+              action: "percent",
+              percent: 100,
+              hash: spark.end()
+            })
+          } else {
+            this.postMessage({
+              action: "percent",
+              percent: count * 100 / fileChunks.length,
+            })
+            count++
+            loadFileChunk()
           }
         }
-        loadFileChunk()
       }
+      loadFileChunk()
     }
+  }
+
+  // gen hash by worker
+  private genHashByWorker (chunks: FileChunk[]): Promise<string> {
     return new Promise(resolve => {
       const spark = new URL("../third/spark-md5.min.js", import.meta.url)
-
       const workerData = new Blob(
-        [`self.importScripts("${spark}");\n` + `(${_worker.toString()})()`],
+        [
+          `self.importScripts("${spark}");\n`,
+          `(function ${this._worker.toString()})()`
+        ],
         { type: "text/javascript" }
       )
       const worker = new Worker(URL.createObjectURL(workerData))
@@ -59,6 +66,7 @@ export class HashHelper {
       })
       worker.onmessage = (e) => {
         if (e.data.percent === 100) {
+          console.log(e.data.hash);
           resolve(e.data.hash)
         }
         this.cb(e.data.percent)
@@ -66,17 +74,23 @@ export class HashHelper {
     })
   }
 
-  private genHashByNone (chunks: FileChunk[], hash: any, end: any): Promise<string> {
+  // gen hash by master thread
+  private genHashByNone (
+    chunks: FileChunk[],
+    helper: {
+      append: (data: string | ArrayBuffer) => void,
+      end: () => void
+    }): Promise<string> {
     let count = 0
     const loadFileChunk = () => {
       return new Promise(resolve => {
         const reader = new FileReader()
         reader.readAsArrayBuffer(chunks[count].chunk)
         reader.onload = (e: ProgressEvent<FileReader>) => {
-          hash(e.target.result)
+          helper.append(e.target.result)
           if (count === chunks.length - 1) {
             this.cb(100)
-            end()
+            helper.end()
           } else {
             this.cb(count * 100 / chunks.length)
             count++
@@ -90,19 +104,37 @@ export class HashHelper {
 
   // by request idle callback
   private async genHashByASM (chunks: FileChunk[]): Promise<string> {
-    const wasm = await import("../third/wasm/hash/hash")
-    await wasm.default()
-    wasm.greet()
-    const hashHelper = wasm.HashHelper.new()
-    this.genHashByNone(
-      chunks,
-      (data: any) => {
-        hashHelper.append(new Uint8Array(data))
-      },
-      () => {
-        console.log(hashHelper.end())
+    const sparkSite = new URL("../third/wasm/hash/hash.js", import.meta.url)
+    const wasmSite = new URL('../third/wasm/hash/hash_bg.wasm', import.meta.url);
+    const callWorker = this._worker.toString()
+      .replace("const spark = new this.SparkMD5.ArrayBuffer();", "const spark = wasm_bindgen.HashHelper.new();")
+
+    return new Promise(resolve => {
+      const workerData = new Blob(
+        [
+          `self.importScripts("${sparkSite}");\n`,
+          `wasm_bindgen("${wasmSite}").then(() => this.postMessage({ action: "init" }));\n`,
+          `(function ${callWorker})()`
+        ],
+        { type: "text/javascript" }
+      )
+      const worker = new Worker(URL.createObjectURL(workerData))
+      worker.onmessage = (e) => {
+        switch(e.data.action) {
+          case "init":
+            worker.postMessage({
+              fileChunks: chunks,
+            })
+            break
+          case "percent":
+            if (e.data.percent === 100) {
+              console.log(e.data.hash);
+              resolve(e.data.hash)
+            }
+            this.cb(e.data.percent)
+            break
+        }
       }
-    )
-    return "hash"
+    })
   }
 }

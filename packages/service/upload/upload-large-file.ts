@@ -75,7 +75,7 @@ export abstract class UploadLargeFile {
     private genHashType: genHashType,
     private maxConnection = 4,
     private tryRequest = 3,
-    public SIZE = 10 * 1024 * 1024
+    public SIZE = 100 * 1024 * 1024
   ) {
     //
   }
@@ -90,7 +90,9 @@ export abstract class UploadLargeFile {
   public async uploadFileChunk () {
     this.createFileChunk()
     if (!this.state.chunks.length) return
+    console.time("hash")
     const filehash = await this.hashHelper.genHash(this.genHashType, this.state.chunks)
+    console.timeEnd("hash")
     // network cache uploaded files
     const { shouldUpload, uploadedList } = await this.verifyAPI({
       filename: this.state.file.name,

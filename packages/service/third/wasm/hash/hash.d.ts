@@ -1,29 +1,32 @@
-/* tslint:disable */
-/* eslint-disable */
-/**
-*/
-export function greet(): void;
-/**
-*/
-export class HashHelper {
-  free(): void;
-/**
-* @returns {HashHelper}
-*/
-  static new(): HashHelper;
-/**
-* @param {Uint8Array} data
-*/
-  append(data: Uint8Array): void;
-/**
-* @returns {string}
-*/
-  end(): string;
+declare namespace wasm_bindgen {
+	/* tslint:disable */
+	/* eslint-disable */
+	/**
+	*/
+	export function greet(): void;
+	/**
+	*/
+	export class HashHelper {
+	  free(): void;
+	/**
+	* @returns {HashHelper}
+	*/
+	  static new(): HashHelper;
+	/**
+	* @param {Uint8Array} data
+	*/
+	  append(data: Uint8Array): void;
+	/**
+	* @returns {string}
+	*/
+	  end(): string;
+	}
+	
 }
 
-export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+declare type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
-export interface InitOutput {
+declare interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly greet: () => void;
   readonly __wbg_hashhelper_free: (a: number) => void;
@@ -41,4 +44,4 @@ export interface InitOutput {
 *
 * @returns {Promise<InitOutput>}
 */
-export default function init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>;
+declare function wasm_bindgen (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>;

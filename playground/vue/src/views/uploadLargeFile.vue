@@ -56,7 +56,7 @@ export function request({
 
 class UploadService extends UploadLargeFile {
   constructor (private onProgress: (idx: number, e: ProgressEvent<EventTarget>) => void = () => {}) {
-    super("wasm")
+    super("worker")
   }
 
   public requestList = []
