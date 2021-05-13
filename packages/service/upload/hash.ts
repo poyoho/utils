@@ -18,34 +18,27 @@ export class HashHelper {
 
   // worker string function
   private _worker (this: any) {
-    this.onmessage = (e) => {
+    this.onmessage = async (e) => {
       const { fileChunks } = e.data
       const spark = new this.SparkMD5.ArrayBuffer();
-      let count = 0
-      function loadFileChunk () {
-        const reader = new FileReader()
-        reader.readAsArrayBuffer(fileChunks[count].chunk)
-        reader.onload = (ev) => {
-          console.time("chunk");
-          spark.append(new Uint8Array(ev.target.result as any))
-          console.timeEnd("chunk");
-          if (count === fileChunks.length - 1) {
-            this.postMessage({
-              action: "percent",
-              percent: 100,
-              hash: spark.end()
-            })
-          } else {
-            this.postMessage({
-              action: "percent",
-              percent: count * 100 / fileChunks.length,
-            })
-            count++
-            loadFileChunk()
-          }
+      for(let count = 0; count < fileChunks.length; count++) {
+        console.time("chunk");
+        const buff = await fileChunks[count].chunk.arrayBuffer()
+        spark.append(new Uint8Array(buff))
+        console.timeEnd("chunk");
+        if (count === fileChunks.length - 1) {
+          this.postMessage({
+            action: "percent",
+            percent: 100,
+            hash: spark.end()
+          })
+        } else {
+          this.postMessage({
+            action: "percent",
+            percent: count * 100 / fileChunks.length,
+          })
         }
       }
-      loadFileChunk()
     }
   }
 
@@ -72,34 +65,6 @@ export class HashHelper {
         this.cb(e.data.percent)
       }
     })
-  }
-
-  // gen hash by master thread
-  private genHashByNone (
-    chunks: FileChunk[],
-    helper: {
-      append: (data: string | ArrayBuffer) => void,
-      end: () => void
-    }): Promise<string> {
-    let count = 0
-    const loadFileChunk = () => {
-      return new Promise(resolve => {
-        const reader = new FileReader()
-        reader.readAsArrayBuffer(chunks[count].chunk)
-        reader.onload = (e: ProgressEvent<FileReader>) => {
-          helper.append(e.target.result)
-          if (count === chunks.length - 1) {
-            this.cb(100)
-            helper.end()
-          } else {
-            this.cb(count * 100 / chunks.length)
-            count++
-            resolve(loadFileChunk())
-          }
-        }
-      })
-    }
-    return loadFileChunk() as Promise<string>
   }
 
   // by request idle callback
