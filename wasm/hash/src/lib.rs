@@ -36,16 +36,6 @@ pub fn greet() {
   log("Hello, rust-webasm-template!");
 }
 
-
-// #[wasm_bindgen]
-// pub extern "C" fn hash(data: &[u8]) -> JsString {
-//   let mut ctx = md5::Context::new();
-//   ctx.consume(data);
-//   let digest = ctx.compute();
-//   let hex: JsString = JsString::from(format!("{:x}", digest).as_str());
-//   JsString::from(hex)
-// }
-
 #[wasm_bindgen]
 pub struct HashHelper {
   ctx: md5::Context,

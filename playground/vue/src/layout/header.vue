@@ -1,7 +1,7 @@
 <template>
   <div class="flex justify-between">
     <div class="logo">
-      <img src="@/assets/logo.jpg" width="60">
+      <img src="https://raw.githubusercontent.com/poyoho/blog/master/assets/logo.svg" width="60">
     </div>
     <ElMenu
       mode="horizontal"
