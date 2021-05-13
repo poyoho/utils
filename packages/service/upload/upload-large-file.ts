@@ -72,7 +72,7 @@ export abstract class UploadLargeFile {
   public event = new Subject<UploadFileServiceShareState>()
 
   constructor (
-    private genHashType: genHashType,
+    private genHashType: genHashType = "wasm",
     private maxConnection = 4,
     private tryRequest = 3,
     public SIZE = 100 * 1024 * 1024
