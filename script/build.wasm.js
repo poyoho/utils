@@ -14,7 +14,7 @@ const step = msg => console.log(chalk.cyan(msg))
 
 const WASMPkgRoot = (name) => path.resolve(__dirname, '../wasm/', name)
 
-async function buildWASMPackage(name) {
+async function buildWASMPackage(name, target) {
   const rootPath = WASMPkgRoot(name)
   const opts = { cwd: rootPath, stdio: 'pipe' }
   try {
@@ -23,7 +23,7 @@ async function buildWASMPackage(name) {
       [
         'build',
         "--target",
-        "web"
+        target
       ],
       opts
     )
@@ -33,12 +33,17 @@ async function buildWASMPackage(name) {
   }
 }
 
-async function copyWASMPackage(name) {
+async function copyWASMPackage(name, formatJsName) {
   async function copyDist(pkgname) {
+    let outName = pkgname
+    if (pkgname === name+".js") {
+      outName = pkgname.replace(name+".js", name+formatJsName)
+    }
     await fs.copy(
-      path.resolve(__dirname, `../wasm/${name}/pkg/`, pkgname),
-      path.resolve(__dirname, `../packages/service/third/wasm/${name}`, pkgname),
+      path.join(__dirname, `../wasm/${name}/pkg/`, pkgname),
+      path.join(__dirname, `../packages/service/third/wasm/${name}`, outName),
     )
+    console.log(chalk.bgBlue("finish"), chalk.gray(outName));
   }
   const copyTask = fs.readdirSync(path.resolve(__dirname, `../wasm/${name}/pkg/`))
     .filter(p => RegExp(`${name}.*`).test(p))
@@ -48,12 +53,18 @@ async function copyWASMPackage(name) {
 }
 
 async function main() {
-  const name = "md5"
-  step('\nBuilding wasm package...')
-  await buildWASMPackage(name)
+  const name = "hash"
+  step('\nBuilding wasm package with web...')
+  await buildWASMPackage(name, "web")
 
   step('\nCopy wasm package to packages third...')
-  await copyWASMPackage(name)
+  await copyWASMPackage(name, ".es.js")
+
+  step('\nBuilding wasm package with no-modules...')
+  await buildWASMPackage(name, "no-modules")
+
+  step('\nCopy wasm package to packages third...')
+  await copyWASMPackage(name, ".js")
 }
 
 main()

@@ -4,8 +4,10 @@ const rollup = require("rollup")
 const typescript = require("rollup-plugin-typescript2")
 const { terser } = require("rollup-plugin-terser")
 const dts = require("rollup-plugin-dts")
+const esbuild = require("rollup-plugin-esbuild")
 const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
 const fs = require("fs-extra")
+
 __dirname = path.join(__dirname, "..")
 
 async function build(pkgPath, subPath) {
@@ -14,20 +16,14 @@ async function build(pkgPath, subPath) {
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`),
     plugins: [
-      typescript({
-        tsconfigOverride: {
-          compilerOptions: {
-            declaration: false,
-          },
-          "exclude": [
-            "node_modules",
-            "__tests__",
-          ],
-        },
-        abortOnError: false,
-        clean: true,
+      esbuild({
+        tsconfig: path.resolve(__dirname, "tsconfig.json"),
+        exclude: [
+          "node_modules",
+          "__tests__",
+        ]
       }),
-      importMetaAssets(),
+      // importMetaAssets(),
     ],
     external(id) {
       // 不打包deps的项目
@@ -80,13 +76,13 @@ async function builddts(pkgPath) {
 // services
 function main() {
   const name = "service"
-  const externalList = ["third", "index.ts", "package.json"]
+  const externalList = ["third", "index.ts", "package.json", "dist"]
 
   const pkgPath = path.resolve(__dirname, `packages/${name}/`)
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
-  builddts(name)
+  // builddts(name)
 }
 
 main()
