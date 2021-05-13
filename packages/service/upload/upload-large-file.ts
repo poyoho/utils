@@ -74,7 +74,7 @@ export abstract class UploadLargeFile {
   constructor (
     private genHashType: genHashType = "wasm",
     private maxConnection = 4,
-    private tryRequest = 3,
+    private tryRequestTimes = 3,
     public SIZE = 100 * 1024 * 1024
   ) {
     //
@@ -88,8 +88,7 @@ export abstract class UploadLargeFile {
 
   // upload file chunks
   public async uploadFileChunk () {
-    this.createFileChunk()
-    if (!this.state.chunks.length) return
+    if (this.state.file.size === 0) return
     console.time("hash")
     const filehash = await this.hashHelper.genHash(this.genHashType, this.state.file)
     console.timeEnd("hash")
@@ -109,29 +108,24 @@ export abstract class UploadLargeFile {
       return
     }
     // uploading
+    // 删除展示fileChunk分片进度 只 share 已经上传size
+    // 使用itor进行切片 yield根据上次返回值进行resize切片大小
     const fileChunksDesc: FileChunkDesc[] = []
+    this.createFileChunk()
     const uploadChunks = this.state.chunks
-      .filter(el => {
+      .filter(el => { // pass uploaded
         if (uploadedList.includes(el.hash)) {
-          fileChunksDesc.push({
-            name: el.hash,
-            size: el.chunk.size,
-            percent: 101
-          })
+          fileChunksDesc.push({ name: el.hash, size: el.chunk.size, percent: 101 })
           return false
         } else {
-          fileChunksDesc.push({
-            name: el.hash,
-            size: el.chunk.size,
-            percent: 0
-          })
+          fileChunksDesc.push({ name: el.hash, size: el.chunk.size, percent: 0 })
           return true
         }
       })
       .map(formData => () => this.uploadAPI({ ...formData, filehash }))
     this.shardState.fileChunksDesc = fileChunksDesc
     this.event.next({ ...this.shardState })
-    await this.uploadHelper.tryAllWithMax(uploadChunks, this.maxConnection, this.tryRequest)
+    await this.uploadHelper.tryAllWithMax(uploadChunks, this.maxConnection, this.tryRequestTimes)
 
     await this.mergeAPI({ filename: this.state.file.name, filehash })
     this.shardState.fileChunksDesc = fileChunksDesc.map(el => (el.percent = 102) && el)
