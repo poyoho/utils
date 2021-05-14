@@ -82,13 +82,13 @@ server.on("request", async (req, res) => {
       }
       console.log('/upload', fields)
       const [chunk] = files.chunk
-      const [hash] = fields.hash
+      const [start_idx] = fields.start_idx
+      const [end_idx] = fields.end_idx
       const [filename] = fields.filename
       const [fileHash] = fields.filehash
-      const [index] = fields.index
       const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
       const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(filename)}`)
-      const chunkPath = path.resolve(chunkDir, hash + "-" + index)
+      const chunkPath = path.resolve(chunkDir, filename + "-" + start_idx + "-" + end_idx)
       if (fs.existsSync(filePath) || fs.existsSync(chunkPath)) {
         res.end("file exist")
         return
@@ -113,9 +113,14 @@ server.on("request", async (req, res) => {
       );
     } else {
       const createUploadedList = async (fileHash: string) =>
-        fs.existsSync(path.resolve(UPLOAD_DIR, fileHash))
+        (fs.existsSync(path.resolve(UPLOAD_DIR, fileHash))
           ? await fs.readdir(path.resolve(UPLOAD_DIR, fileHash))
-          : [];
+          : [])
+          .map(name => {
+            const idxs = /.*-(\d*)-(\d*)/.exec(name)
+            console.log(idxs);
+            return [idxs[1], idxs[2]]
+          })
       res.end(
         JSON.stringify({
           shouldUpload: true,

@@ -6,28 +6,14 @@
    <el-button @click="handleUpload">恢复</el-button>
   </div>
   <el-progress :percentage="uploadState.hashPercent"></el-progress>
-  <div class="cube-container" :style="{width:cubeWidth+'px'}">
-    <div class="cube"
-      v-for="chunk in uploadState.percent"
-      :key="chunk.name">
-      <div
-        :class="{
-        'uploading':chunk.percent>0&&chunk.percent<100,
-        'uploaded':chunk.percent===100,
-        'pass':chunk.percent===101,
-        'success':chunk.percent===102,
-        }"
-        :style="{height:chunk.percent+'%'}"
-        >
-        <i v-if="chunk.percent>0&&chunk.percent<100" class="el-icon-loading" style="color:#F56C6C;"></i>
-      </div>
-    </div>
-  </div>
+
+  <canvas width="500" height="200" ref="canvas"></canvas>
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, reactive } from "vue"
+import { computed, defineComponent, onMounted, reactive, ref } from "vue"
 import { UploadLargeFile, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service/upload"
+import {  FileChunkDesc, UploadStatus } from "@poyoho/shared-service/upload/upload";
 
 export function request({
   url,
@@ -55,24 +41,23 @@ export function request({
 }
 
 class UploadService extends UploadLargeFile {
-  constructor (private onProgress: (idx: number, e: ProgressEvent<EventTarget>) => void = () => {}) {
+  constructor (private onProgress: (fileChunkDesc: FileChunkDesc, e: ProgressEvent<EventTarget>) => void = () => {}) {
     super()
   }
-
   public requestList = []
 
   uploadAPI (data: UploadFileParams) {
     const formData = new FormData()
     formData.append("chunk", data.chunk)
-    formData.append("hash", data.hash)
-    formData.append("index", data.index.toString())
+    formData.append("start_idx", data.startIdx.toString())
+    formData.append("end_idx", data.endIdx.toString())
     formData.append("filename", data.filename)
     formData.append("filehash", data.filehash)
     return request({
       url: "http://localhost:3000/upload",
       data: formData,
       requestList: this.requestList,
-      onProgress: (e) => this.onProgress(data.index, e)
+      onProgress: (e) => this.onProgress(data, e)
     })
   }
 
@@ -86,7 +71,10 @@ class UploadService extends UploadLargeFile {
     })
   }
 
-  async verifyAPI (data: verifyUploadFileParamas) {
+  async verifyAPI (data: verifyUploadFileParamas): Promise<{
+    shouldUpload: boolean,
+    uploadedList: FileChunkDesc[]
+  }> {
     const res = JSON.parse((await request({
       url: "http://localhost:3000/verify",
       headers: {
@@ -95,45 +83,65 @@ class UploadService extends UploadLargeFile {
       data: JSON.stringify(data)
     }) as any).data.response)
     return {
-      shouldUpload: res.shouldUpload,
-      uploadedList: res.uploadedList
+      shouldUpload: res.shouldUpload as boolean,
+      uploadedList: res.uploadedList.map(idxs => ({
+        startIdx: Number(idxs[0]),
+        endIdx: Number(idxs[1]),
+        status: "pass"
+      }))
     }
   }
-}
-
-interface percentState {
-  percent: number
-  size: number
-  name: string
 }
 
 export default defineComponent({
   setup() {
     const uploadState = reactive({
       size: 0,
-      percent: [] as percentState[],
       hashPercent: 0,
+      fileChunks: [] as FileChunkDesc[],
     })
-    const uploadService = new UploadService((idx, e) => {
-      uploadState.percent[idx].percent = parseInt(String((e.loaded / e.total) * 100))
+    const canvas = ref<HTMLCanvasElement>()
+    const ctx = ref<CanvasRenderingContext2D>()
+    // xhr请求的progress
+    const uploadService = new UploadService((chunk, e) => {
+      const percent =  e.loaded / e.total
+      const offset = chunk.endIdx - chunk.startIdx
+      const start = chunk.startIdx
+      const end = chunk.startIdx + Math.ceil(offset * percent)
+      drawPercent(start, end, "uploading")
     })
 
     uploadService.event.subscribe(state => {
       uploadState.hashPercent = Math.ceil(state.hashPercent)
-      uploadState.percent = state.fileChunksDesc
+      uploadState.fileChunks = state.fileChunksDesc
+      uploadState.fileChunks.forEach(chunk => {
+        drawPercent(chunk.startIdx, chunk.endIdx, chunk.status)
+      })
     })
 
-    const cubeWidth = computed(() => {
-      return Math.ceil(Math.sqrt(uploadState.percent.length))*16
+    onMounted(() => {
+      ctx.value = canvas.value.getContext("2d")
+      ctx.value.fillStyle = "#666"
+      ctx.value.fillRect(0, 0, 500, 10)
     })
+    function drawPercent(start: number, end: number, status: UploadStatus) {
+      const x1 = start * 500 / uploadState.size
+      const x2 = end * 500 / uploadState.size
+      switch(status) {
+        case "pass": ctx.value.fillStyle = "#45c23a"; break
+        case "ready": ctx.value.fillStyle = "#666666"; break
+        case "uploading": ctx.value.fillStyle = "#0088ff"; break
+        case "uploaded": ctx.value.fillStyle = "#45c23a"; break
+      }
+      ctx.value.fillRect(Math.floor(x1), 0, Math.ceil(x2 - x1), 10)
+    }
 
     return {
-      cubeWidth,
+      canvas,
       uploadState,
 
       handleFileChange (e: { target: HTMLInputElement }) {
         uploadState.size = 0
-        uploadState.percent = []
         const [file] = Array.from(e.target.files)
         if (!file) return
         uploadState.size = file.size
@@ -148,7 +156,6 @@ export default defineComponent({
         uploadService.requestList.forEach(xhr => xhr?.abort())
         uploadService.requestList = []
       },
-
     }
 
   }

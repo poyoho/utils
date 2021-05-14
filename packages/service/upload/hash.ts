@@ -2,7 +2,7 @@ export type genHashType = "worker" | "wasm"
 
 export class HashHelper {
   constructor(
-    private cb?: (percent: number) => void,
+    private cb: (percent: number) => void = () => {},
     private FILE_OFFSET = 50 * 1024 * 1024, // 50M
     private CHUNK_OFFSET = 10 * 1024 * 1024, // 5M
     private CALC_CHUNK = 1024 * 1024, // 1M
