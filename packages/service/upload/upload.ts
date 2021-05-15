@@ -1,5 +1,4 @@
 import { PromiseTryAllWithMax } from "@poyoho/shared-service/promise"
-
 // upload status
 export type UploadStatus = "pass" | "ready" | "uploading" | "uploaded"
 
@@ -18,12 +17,11 @@ export interface FileChunk extends FileChunkDesc{
 export type UploadAPI = (formData: FileChunk) => Promise<any>
 
 // uploading
-// 删除展示fileChunk分片进度 只 share 已经上传size
-// 使用itor进行切片 yield根据上次返回值进行resize切片大小
 export class UploadHelper {
-
   constructor(
     private cb: (fileChunkDesc: FileChunkDesc[]) => void = () => {},
+    private maxConnection = 4,
+    private tryRequestTimes = 3,
   ) {}
 
   async upload(
@@ -36,7 +34,7 @@ export class UploadHelper {
     await this.slowStart(file, uploadedFileList, uploadAPI)
   }
 
-  private filterUploadedFileChunks(file:File, uploadedFileList: FileChunkDesc[]): FileChunk[] {
+  private filterUploadedFileChunks(file: File, uploadedFileList: FileChunkDesc[]): FileChunk[] {
     if (uploadedFileList.length === 0) {
       const fileChunks: FileChunk[] = [{
         startIdx: 0,
@@ -49,12 +47,13 @@ export class UploadHelper {
       return fileChunks
     }
     const fileChunks: FileChunk[] = []
-    const push = (startIdx: number, endIdx: number, status: UploadStatus) =>
+    const push = (startIdx: number, endIdx: number, status: UploadStatus) => {
       fileChunks.push({
         startIdx, endIdx, status,
         chunk: file.slice(startIdx, endIdx),
         filename: file.name,
       })
+    }
     const endIdx = uploadedFileList.sort((a, b) => a.startIdx - b.startIdx).reduce((prev, next) => {
       if (next.startIdx > prev) {
         push(prev, next.startIdx, "ready")
@@ -80,13 +79,15 @@ export class UploadHelper {
 
     for(let idx = 0; idx < fileChunks.length; idx++) {
       const fileChunk = fileChunks[idx]
-      if(fileChunk.status === "pass") continue
+      if (fileChunk.status === "pass") continue
       const size = fileChunk.endIdx - fileChunk.startIdx
+      console.log("size and file offset", size, FILE_OFFSET)
       if (size > FILE_OFFSET) {
         // slice
         for(let cur = fileChunk.startIdx; cur < fileChunk.endIdx; cur += FILE_OFFSET) {
-          const curEnd = cur + FILE_OFFSET > fileChunk.chunk.size ? fileChunk.chunk.size : cur + FILE_OFFSET
+          const curEnd = cur + FILE_OFFSET > fileChunk.endIdx ? fileChunk.endIdx : cur + FILE_OFFSET
           const start = new Date().getTime()
+          console.log("slice big chunk", cur, curEnd)
           yield {
             startIdx: cur,
             endIdx: curEnd,
@@ -95,13 +96,14 @@ export class UploadHelper {
             filename: file.name,
           }
           const speed = calcSpeed(fileChunk, start)
-          // console.log(speed, "MB/s");
+          console.log(speed, "MB/s");
         }
       } else {
+        console.log("upload", fileChunk);
         const start = new Date().getTime()
         yield fileChunk
         const speed = calcSpeed(fileChunk, start)
-        // console.log(speed, "MB/s");
+        console.log(speed, "MB/s");
       }
     }
   }
@@ -117,8 +119,13 @@ export class UploadHelper {
     const fileChunksIteror = this.dynamicSize(file, fileChunks)
     while (true) {
       const fileChunk = fileChunksIteror.next()
-      if (fileChunk.done) { break }
-      await uploadAPI(fileChunk.value as FileChunk)
+      if (fileChunk.done) break
+      const chunk = fileChunk.value as FileChunk
+      await uploadAPI(chunk)
+      chunk.status = "uploaded"
+      this.cb([chunk])
+      // TODO resize FILE_OFFSET
     }
+    console.log("slowStart: exit");
   }
 }

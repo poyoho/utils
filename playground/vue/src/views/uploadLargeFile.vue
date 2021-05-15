@@ -3,7 +3,7 @@
    <input type="file" @change="handleFileChange" />
    <el-button @click="handleUpload">上传</el-button>
    <el-button @click="handleStop">暂停</el-button>
-   <el-button @click="handleUpload">恢复</el-button>
+   {{ uploadState.canceled }}
   </div>
   <el-progress :percentage="uploadState.hashPercent"></el-progress>
 
@@ -11,21 +11,21 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, onMounted, reactive, ref } from "vue"
+import { defineComponent, onMounted, reactive, ref } from "vue"
 import { UploadLargeFile, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service/upload"
-import {  FileChunkDesc, UploadStatus } from "@poyoho/shared-service/upload/upload";
+import { FileChunkDesc, UploadStatus } from "@poyoho/shared-service/upload/upload";
 
 export function request({
   url,
   method = "post",
   data,
   headers = {},
-  requestList = [],
+  cache = (_: XMLHttpRequest) => {},
   onProgress = (_: ProgressEvent) => {},
 }) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    requestList.push(xhr)
+    cache(xhr)
     xhr.upload.onprogress = onProgress
     xhr.open(method, url);
     Object.keys(headers).forEach(key =>
@@ -37,6 +37,9 @@ export function request({
         data: e.target
       });
     };
+    xhr.onerror = e => {
+      reject(e)
+    }
   });
 }
 
@@ -44,7 +47,6 @@ class UploadService extends UploadLargeFile {
   constructor (private onProgress: (fileChunkDesc: FileChunkDesc, e: ProgressEvent<EventTarget>) => void = () => {}) {
     super()
   }
-  public requestList = []
 
   uploadAPI (data: UploadFileParams) {
     const formData = new FormData()
@@ -56,7 +58,7 @@ class UploadService extends UploadLargeFile {
     return request({
       url: "http://localhost:3000/upload",
       data: formData,
-      requestList: this.requestList,
+      cache: this.cacheRequest.bind(this),
       onProgress: (e) => this.onProgress(data, e)
     })
   }
@@ -98,6 +100,7 @@ export default defineComponent({
     const uploadState = reactive({
       size: 0,
       hashPercent: 0,
+      canceled: false,
       fileChunks: [] as FileChunkDesc[],
     })
     const canvas = ref<HTMLCanvasElement>()
@@ -114,6 +117,7 @@ export default defineComponent({
     uploadService.event.subscribe(state => {
       uploadState.hashPercent = Math.ceil(state.hashPercent)
       uploadState.fileChunks = state.fileChunksDesc
+      uploadState.canceled = state.canceled
       uploadState.fileChunks.forEach(chunk => {
         drawPercent(chunk.startIdx, chunk.endIdx, chunk.status)
       })
@@ -149,12 +153,11 @@ export default defineComponent({
       },
 
       async handleUpload () {
-        await uploadService.uploadFileChunk()
+        await uploadService.upload()
       },
 
       handleStop () {
-        uploadService.requestList.forEach(xhr => xhr?.abort())
-        uploadService.requestList = []
+        uploadService.stop()
       },
     }
 

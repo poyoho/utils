@@ -8,6 +8,8 @@ export class HashHelper {
     private CALC_CHUNK = 1024 * 1024, // 1M
   ) {}
 
+  private worker: Worker
+
   public genHash (
     type: genHashType,
     file: File,
@@ -18,6 +20,10 @@ export class HashHelper {
       case "wasm":
         return this.genHashByASM(file)
     }
+  }
+
+  public stop () {
+    this.worker?.terminate()
   }
 
   // worker string function
@@ -103,6 +109,7 @@ export class HashHelper {
       const worker = this.callWorker([
         `self.importScripts("${sparkSite}");\n`,
       ])
+      this.worker = worker
       worker.postMessage({ file })
       worker.onmessage = (e) => {
         if (e.data.percent === 100) {
@@ -118,7 +125,7 @@ export class HashHelper {
   private async genHashByASM (file: File): Promise<string> {
     return new Promise(resolve => {
       const sparkSite = new URL("../third/wasm/hash/hash.js", import.meta.url)
-      const wasmSite = new URL('../third/wasm/hash/hash_bg.wasm', import.meta.url);
+      const wasmSite = new URL('../third/wasm/hash/hash_bg.wasm', import.meta.url)
       const worker = this.callWorker(
         [
           `self.importScripts("${sparkSite}");\n`,
@@ -126,6 +133,7 @@ export class HashHelper {
         ],
         (script) => script.replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()")
       )
+      this.worker = worker
       worker.onmessage = (e) => {
         switch(e.data.action) {
           case "init":
