@@ -137,7 +137,7 @@ export abstract class UploadLargeFile {
       uploadedList,
       (formData: FileChunk) => this.uploadAPI({ ...formData, filehash }),
     )
-    await this.mergeAPI({ filename: this.state.file.name, filehash })
+    // await this.mergeAPI({ filename: this.state.file.name, filehash })
     console.log("upload end");
   }
 }

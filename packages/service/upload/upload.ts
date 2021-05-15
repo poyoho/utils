@@ -68,42 +68,35 @@ export class UploadHelper {
     return fileChunks
   }
 
-  private *dynamicSize(file: File, fileChunks: FileChunk[]): Iterator<FileChunk, void, FileChunk> {
-    const FILE_OFFSET = 200 * 1024 * 1024
-
-    const calcSpeed = (fileChunk: FileChunk, start: number) => {
-      const time = Number(((new Date().getTime() - start) / 1000).toFixed(4))
-      const size = (fileChunk.endIdx - fileChunk.startIdx) / 1024 / 1024
-      return size / time
-    }
-
+  private *dynamicSize(
+    file: File,
+    fileChunks: FileChunk[],
+    fileOffset: number
+  ): Iterator<FileChunk, void, number> {
     for(let idx = 0; idx < fileChunks.length; idx++) {
       const fileChunk = fileChunks[idx]
       if (fileChunk.status === "pass") continue
       const size = fileChunk.endIdx - fileChunk.startIdx
-      console.log("size and file offset", size, FILE_OFFSET)
-      if (size > FILE_OFFSET) {
+      console.log("size and file offset: ", size, fileOffset)
+      if (size > fileOffset) {
         // slice
-        for(let cur = fileChunk.startIdx; cur < fileChunk.endIdx; cur += FILE_OFFSET) {
-          const curEnd = cur + FILE_OFFSET > fileChunk.endIdx ? fileChunk.endIdx : cur + FILE_OFFSET
-          const start = new Date().getTime()
-          console.log("slice big chunk", cur, curEnd)
-          yield {
+        for(let cur = fileChunk.startIdx; cur < fileChunk.endIdx;) {
+          const curEnd = cur + fileOffset > fileChunk.endIdx ? fileChunk.endIdx : cur + fileOffset
+          console.log("slice big chunk: ", cur, curEnd)
+          const newOffset = yield {
             startIdx: cur,
             endIdx: curEnd,
             status: "ready",
             chunk: file.slice(cur, curEnd),
             filename: file.name,
           }
-          const speed = calcSpeed(fileChunk, start)
-          console.log(speed, "MB/s");
+          cur += fileOffset
+          fileOffset = newOffset
         }
       } else {
-        console.log("upload", fileChunk);
-        const start = new Date().getTime()
-        yield fileChunk
-        const speed = calcSpeed(fileChunk, start)
-        console.log(speed, "MB/s");
+        console.log("upload small chunk: ", fileChunk)
+        const newOffset = yield fileChunk
+        fileOffset = newOffset
       }
     }
   }
@@ -113,19 +106,46 @@ export class UploadHelper {
     return PromiseTryAllWithMax(uploadChunks, maxConnection, tryRequest)
   }
 
+  private resize() {
+    let speedSum = 0
+    let speedCount = 0
+    return (size: number, start: number) => {
+      const time = Number(((new Date().getTime() - start) / 1000).toFixed(4))
+      size /= 1024 * 1024
+      const speed = Math.floor(size / time)
+      speedSum += speed
+      speedCount++
+      console.log("🚗speed: ", speedSum / speedCount + "MB/s")
+      return speedSum / speedCount * 1024 * 1024
+    }
+  }
+
+  private async requestResizeFileOffset (
+    chunk: FileChunk,
+    uploadAPI: UploadAPI,
+    resize: (size: number, start: number) => number
+  ) {
+    const start = Date.now()
+    await uploadAPI(chunk)
+    return resize(chunk.endIdx - chunk.startIdx, start)
+  }
+
   // slow start upload
   private async slowStart(file: File, uploadedFileList: FileChunkDesc[], uploadAPI: UploadAPI) {
+    let fileOffset = 10 * 1024 * 1024 // file chunks start 10M start
+    const resizer = this.resize()
     const fileChunks = this.filterUploadedFileChunks(file, uploadedFileList)
-    const fileChunksIteror = this.dynamicSize(file, fileChunks)
+    const fileChunksIteror = this.dynamicSize(file, fileChunks, fileOffset)
     while (true) {
-      const fileChunk = fileChunksIteror.next()
+      // TODO resize FILE_OFFSET
+      console.log("📃file offset", fileOffset)
+      const fileChunk = fileChunksIteror.next(fileOffset)
       if (fileChunk.done) break
       const chunk = fileChunk.value as FileChunk
-      await uploadAPI(chunk)
+      fileOffset = await this.requestResizeFileOffset(chunk, uploadAPI, resizer)
       chunk.status = "uploaded"
       this.cb([chunk])
-      // TODO resize FILE_OFFSET
     }
-    console.log("slowStart: exit");
+    console.log("slowStart: exit")
   }
 }
