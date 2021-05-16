@@ -1,4 +1,3 @@
-import { PromiseTryAllWithMax } from "@poyoho/shared-service/promise"
 // upload status
 export type UploadStatus = "pass" | "ready" | "uploading" | "uploaded"
 
@@ -101,39 +100,33 @@ export class UploadHelper {
     }
   }
 
-  // Promise.all with control of concurrent connections and try times
-  private tryAllWithMax (uploadChunks: (() => Promise<any>)[], maxConnection: number, tryRequest: number) {
-    return PromiseTryAllWithMax(uploadChunks, maxConnection, tryRequest)
+  private resize(offset: number, start: number) {
+    const time = Number(((new Date().getTime() - start) / 1000).toFixed(4))
+    let rate = time / 5
+    if(rate < 0.5) rate = 0.5
+    if(rate > 2) rate = 2
+    offset = Math.ceil(offset / rate)
+    return offset
   }
 
-  private resize() {
-    let speedSum = 0
-    let speedCount = 0
-    return (size: number, start: number) => {
-      const time = Number(((new Date().getTime() - start) / 1000).toFixed(4))
-      size /= 1024 * 1024
-      const speed = Math.floor(size / time)
-      speedSum += speed
-      speedCount++
-      console.log("🚗speed: ", speedSum / speedCount + "MB/s")
-      return speedSum / speedCount * 1024 * 1024
-    }
-  }
-
-  private async requestResizeFileOffset (
+  private async requestResizeChunk (
     chunk: FileChunk,
     uploadAPI: UploadAPI,
-    resize: (size: number, start: number) => number
+    offset: number
   ) {
     const start = Date.now()
     await uploadAPI(chunk)
-    return resize(chunk.endIdx - chunk.startIdx, start)
+    return this.resize(offset, start)
+  }
+
+  // Promise.all with control of concurrent connections and try times
+  private tryAllWithMax (chunkItor: Iterator<FileChunk, void, number>, ) {
+
   }
 
   // slow start upload
   private async slowStart(file: File, uploadedFileList: FileChunkDesc[], uploadAPI: UploadAPI) {
     let fileOffset = 10 * 1024 * 1024 // file chunks start 10M start
-    const resizer = this.resize()
     const fileChunks = this.filterUploadedFileChunks(file, uploadedFileList)
     const fileChunksIteror = this.dynamicSize(file, fileChunks, fileOffset)
     while (true) {
@@ -142,7 +135,7 @@ export class UploadHelper {
       const fileChunk = fileChunksIteror.next(fileOffset)
       if (fileChunk.done) break
       const chunk = fileChunk.value as FileChunk
-      fileOffset = await this.requestResizeFileOffset(chunk, uploadAPI, resizer)
+      fileOffset = await this.requestResizeChunk(chunk, uploadAPI, fileOffset)
       chunk.status = "uploaded"
       this.cb([chunk])
     }

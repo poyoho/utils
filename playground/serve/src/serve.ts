@@ -117,7 +117,8 @@ server.on("request", async (req, res) => {
           ? await fs.readdir(path.resolve(UPLOAD_DIR, fileHash))
           : [])
           .map(name => {
-            const idxs = /.*-(\d*)-(\d*)/.exec(name)
+            name = name.replace(filename, "")
+            const idxs = /-(\d*)-(\d*)/.exec(name)
             console.log(idxs);
             return [idxs[1], idxs[2]]
           })
