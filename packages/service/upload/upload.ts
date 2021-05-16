@@ -76,12 +76,13 @@ export class UploadHelper {
       const fileChunk = fileChunks[idx]
       if (fileChunk.status === "pass") continue
       const size = fileChunk.endIdx - fileChunk.startIdx
-      console.log("size and file offset: ", size, fileOffset)
+      console.log("🚀", fileChunk.startIdx, fileChunk.endIdx)
       if (size > fileOffset) {
         // slice
+        console.log("slice big chunk: ", fileChunk.startIdx, fileChunk.endIdx)
         for(let cur = fileChunk.startIdx; cur < fileChunk.endIdx;) {
           const curEnd = cur + fileOffset > fileChunk.endIdx ? fileChunk.endIdx : cur + fileOffset
-          console.log("slice big chunk: ", cur, curEnd)
+          console.log("🔪", cur, curEnd)
           const newOffset = yield {
             startIdx: cur,
             endIdx: curEnd,
@@ -89,11 +90,10 @@ export class UploadHelper {
             chunk: file.slice(cur, curEnd),
             filename: file.name,
           }
-          cur += fileOffset
+          cur = curEnd
           fileOffset = newOffset
         }
       } else {
-        console.log("upload small chunk: ", fileChunk)
         const newOffset = yield fileChunk
         fileOffset = newOffset
       }
@@ -104,41 +104,69 @@ export class UploadHelper {
     const time = Number(((new Date().getTime() - start) / 1000).toFixed(4))
     let rate = time / 5
     if(rate < 0.5) rate = 0.5
-    if(rate > 2) rate = 2
+    else if(rate > 2) rate = 2
     offset = Math.ceil(offset / rate)
     return offset
   }
 
   private async requestResizeChunk (
     chunk: FileChunk,
+    offset: number,
     uploadAPI: UploadAPI,
-    offset: number
   ) {
     const start = Date.now()
-    await uploadAPI(chunk)
-    return this.resize(offset, start)
+    const resp = await uploadAPI(chunk)
+    const fileOffset = this.resize(offset, start)
+    return { resp, fileOffset }
   }
 
   // Promise.all with control of concurrent connections and try times
-  private tryAllWithMax (chunkItor: Iterator<FileChunk, void, number>, ) {
-
+  private requestWithConcurrent (
+    chunkItor: Iterator<FileChunk, void, number>,
+    fileOffset: number,
+    uploadAPI: UploadAPI,
+  ) {
+    let max = this.maxConnection
+    return new Promise((resolve, reject) => {
+      const result = []
+      const next = () => {
+        console.log("📃file offset", fileOffset)
+        const chunkItorResult = chunkItor.next(fileOffset)
+        if (chunkItorResult.done) {
+          if (max === 1) { // the last thread finish
+            console.log("😀finish")
+            resolve(result)
+          } else {
+            max--
+          }
+          return
+        }
+        const chunk = chunkItorResult.value as FileChunk
+        console.log("🧶chunk: ", chunk);
+        this.requestResizeChunk(chunk, fileOffset, uploadAPI)
+          .then(res => {
+            fileOffset = res.fileOffset
+            result.push(res.resp)
+          })
+          .catch((err) => {
+            reject(err)
+          })
+          .finally(() => {
+            chunk.status = "uploaded"
+            this.cb([chunk])
+            next()
+          })
+      }
+      Array(max).fill(1).forEach(() => next())
+    })
   }
 
   // slow start upload
   private async slowStart(file: File, uploadedFileList: FileChunkDesc[], uploadAPI: UploadAPI) {
-    let fileOffset = 10 * 1024 * 1024 // file chunks start 10M start
+    const fileOffset = 10 * 1024 * 1024 // file chunks start 10M start
     const fileChunks = this.filterUploadedFileChunks(file, uploadedFileList)
     const fileChunksIteror = this.dynamicSize(file, fileChunks, fileOffset)
-    while (true) {
-      // TODO resize FILE_OFFSET
-      console.log("📃file offset", fileOffset)
-      const fileChunk = fileChunksIteror.next(fileOffset)
-      if (fileChunk.done) break
-      const chunk = fileChunk.value as FileChunk
-      fileOffset = await this.requestResizeChunk(chunk, uploadAPI, fileOffset)
-      chunk.status = "uploaded"
-      this.cb([chunk])
-    }
-    console.log("slowStart: exit")
+    const res = await this.requestWithConcurrent(fileChunksIteror, fileOffset, uploadAPI)
+    console.log("slowStart: exit", res)
   }
 }
