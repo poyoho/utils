@@ -1,6 +1,6 @@
 use md5;
 use std::fs;
-use std::time::{Duration, SystemTime};
+use std::time::{SystemTime};
 
 fn main() {
   println!("hash");
