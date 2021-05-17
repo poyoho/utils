@@ -190,7 +190,6 @@ export class UploadHelper {
     const fileChunksIteror = this.dynamicSize(file, fileChunks, fileOffset)
     const res = await this.requestWithConcurrent(fileChunksIteror, fileOffset, uploadAPI)
     this.canceled = false
-    this.cb([])
     console.log("upload helper: exit", res)
   }
 }

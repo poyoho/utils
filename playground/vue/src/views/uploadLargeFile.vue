@@ -103,7 +103,6 @@ export default defineComponent({
       size: 0,
       hashPercent: 0,
       canceled: false,
-      fileChunks: [] as FileChunkDesc[],
     })
     const canvas = ref<HTMLCanvasElement>()
     const ctx = ref<CanvasRenderingContext2D>()
@@ -118,9 +117,8 @@ export default defineComponent({
 
     uploadService.event.subscribe(state => {
       uploadState.hashPercent = Math.ceil(state.hashPercent)
-      uploadState.fileChunks = state.fileChunksDesc
       uploadState.canceled = state.canceled
-      uploadState.fileChunks.forEach(chunk => {
+      state.fileChunksDesc.forEach(chunk => {
         drawPercent(chunk.startIdx, chunk.endIdx, chunk.status)
       })
     })

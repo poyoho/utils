@@ -100,6 +100,7 @@ export abstract class UploadLargeFile {
     // after stop reset helper
     this.state.isUploading = false
     this.shareState.canceled = false
+    this.shareState.fileChunksDesc = []
     this.event.next({ ...this.shareState })
     console.log("uploader reset");
   }
