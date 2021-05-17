@@ -54,14 +54,15 @@ async function builddts(pkgPath) {
       typescript({
         // 修改tsconfig配置
         tsconfigOverride: {
-          "include": [
-            "packages/**/*",
-          ],
           "exclude": [
             "node_modules",
             "packages/**/__tests__/*",
           ],
+          include: [
+            `packages/${pkgPath}/**/*`
+          ]
         },
+        tsconfig: path.resolve(__dirname, "tsconfig.json"),
         abortOnError: false,
       }),
       importMetaAssets(),
@@ -87,16 +88,18 @@ async function builddts(pkgPath) {
   console.log(chalk.blueBright(`${pkgPath} dts done`))
 }
 
-// services
-function main() {
-  const name = "service"
-  const externalList = ["third", "index.ts", "package.json", "dist"]
-
+function packaging(name, externalList) {
   const pkgPath = path.resolve(__dirname, `packages/${name}/`)
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
   builddts(name)
+}
+
+// services
+function main() {
+  packaging("service", ["index.ts", "package.json", "dist", "third"])
+  packaging("util", ["index.ts", "package.json", "dist"])
 }
 
 main()
