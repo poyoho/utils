@@ -1,5 +1,5 @@
 import { Subject } from 'rxjs'
-import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "@poyoho/shared-service/diff"
+import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "@poyoho/shared-util/diff"
 export interface PaginationParams {
   page: number
   limit: number
