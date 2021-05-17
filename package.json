@@ -28,9 +28,11 @@
   "license": "ISC",
   "devDependencies": {
     "@commitlint/config-conventional": "^11.0.0",
+    "@tailwindcss/postcss7-compat": "^2.1.2",
     "@typescript-eslint/eslint-plugin": "^3.10.1",
     "@typescript-eslint/parser": "^3.10.1",
     "@web/rollup-plugin-import-meta-assets": "^1.0.6",
+    "autoprefixer": "^9.8.6",
     "chalk": "^4.1.0",
     "enquirer": "^2.3.6",
     "esbuild": "^0.11.20",
@@ -39,6 +41,7 @@
     "fs-extra": "^10.0.0",
     "lerna": "^3.22.1",
     "minimist": "^1.2.5",
+    "postcss": "^7.0.35",
     "rimraf": "^3.0.2",
     "rollup": "^2.45.2",
     "rollup-plugin-dts": "^3.0.1",
@@ -46,6 +49,7 @@
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.30.0",
     "semver": "^7.3.2",
+    "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.1.2",
     "typescript": "^4.1.2"
   },
   "workspaces": [
