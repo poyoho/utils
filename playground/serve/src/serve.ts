@@ -1,9 +1,11 @@
+import express from "express"
 import http from "http"
 import path from "path"
 import fs from "fs-extra"
 import multiparty from "multiparty"
 
-const server = http.createServer()
+const app = express()
+const server = http.createServer(app)
 
 
 const UPLOAD_DIR = path.resolve(__dirname, "..", "save")
@@ -48,59 +50,77 @@ const resolvePost = (req: any): Promise<any> =>
     })
   })
 
-server.on("request", async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*")
-  res.setHeader("Access-Control-Allow-Headers", "*")
-  if (req.method === "OPTIONS") {
-    res.status = 200
-    res.end()
+// error test
+let errorTest = 0
+let errorRequestList = [1, 20, 40, 60, 80]
+
+app.all('*', function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
+  res.header("Access-Control-Allow-Headers", "*");
+  if (req.method.toLowerCase() == 'options')
+    res.send(200)
+  else
+    next();
+});
+
+app.all("/upload", async (req, res) => {
+  errorTest++
+  if (errorRequestList.includes(errorTest)) {
+    console.error("error test", errorTest)
+    res.status(500)
+    res.end("error test")
     return
   }
+  const multipart = new multiparty.Form()
+  multipart.parse(req, async (err, fields, files) => {
+    if (err) {
+      console.error(err)
+      res.status(500)
+      res.end("process file chunk failed")
+      return
+    }
+    console.log('/upload', fields)
+    const [chunk] = files.chunk
+    const [start_idx] = fields.start_idx
+    const [end_idx] = fields.end_idx
+    const [filename] = fields.filename
+    const [fileHash] = fields.filehash
+    const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
+    const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(filename)}`)
+    const chunkPath = path.resolve(chunkDir, filename + "-" + start_idx + "-" + end_idx)
+    if (fs.existsSync(filePath) || fs.existsSync(chunkPath)) {
+      res.end("file exist")
+      return
+    }
+    if (!fs.existsSync(chunkDir)) {
+      await fs.mkdirs(chunkDir)
+    }
+    await fs.move(chunk.path, chunkPath)
+    res.end("received file chunk")
+  })
+})
 
-  if (req.url === "/merge") {
-    const data = await resolvePost(req)
-    console.log('/merge', data)
-    const { filename, filehash } = data
-    const ext = extractExt(filename)
-    const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
-    res.end(
-      JSON.stringify({
-        code: 0,
-        message: "file merged success"
-      })
-      )
-    await mergeFileChunk(filePath, filehash)
-    return
-  } else if (req.url === "/upload") {
-    const multipart = new multiparty.Form()
-    multipart.parse(req, async (err, fields, files) => {
-      if (err) {
-        console.error(err)
-        res.status = 500
-        res.end("process file chunk failed")
-        return
-      }
-      console.log('/upload', fields)
-      const [chunk] = files.chunk
-      const [start_idx] = fields.start_idx
-      const [end_idx] = fields.end_idx
-      const [filename] = fields.filename
-      const [fileHash] = fields.filehash
-      const chunkDir = path.resolve(UPLOAD_DIR, fileHash)
-      const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(filename)}`)
-      const chunkPath = path.resolve(chunkDir, filename + "-" + start_idx + "-" + end_idx)
-      if (fs.existsSync(filePath) || fs.existsSync(chunkPath)) {
-        res.end("file exist")
-        return
-      }
-      if (!fs.existsSync(chunkDir)) {
-        await fs.mkdirs(chunkDir)
-      }
-      await fs.move(chunk.path, chunkPath)
-      res.end("received file chunk")
+app.all("/merge", async (req, res) => {
+  errorTest = 0
+  const data = await resolvePost(req)
+  console.log('/merge', data)
+  const { filename, filehash } = data
+  const ext = extractExt(filename)
+  const filePath = path.resolve(UPLOAD_DIR, `${filehash}${ext}`)
+  res.end(
+    JSON.stringify({
+      code: 0,
+      message: "file merged success"
     })
-  } else if (req.url === "/verify") {
-    const data = await resolvePost(req)
+  )
+  await mergeFileChunk(filePath, filehash)
+  console.log("merge end")
+  return
+})
+
+app.all("/verify", async (req, res) => {
+  const data = await resolvePost(req)
     console.log("/verify", data)
     const { filehash, filename } = data
     const ext = extractExt(filename)
@@ -129,7 +149,6 @@ server.on("request", async (req, res) => {
         })
       );
     }
-  }
 })
 
-server.listen(3000, () => console.log("listening port 3000"))
+app.listen(3000, () => console.log("listening port 3000"))

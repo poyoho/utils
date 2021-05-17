@@ -20,26 +20,29 @@ export function request({
   method = "post",
   data,
   headers = {},
-  cache = (_: XMLHttpRequest) => {},
   onProgress = (_: ProgressEvent) => {},
 }) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    cache(xhr)
     xhr.upload.onprogress = onProgress
     xhr.open(method, url);
     Object.keys(headers).forEach(key =>
       xhr.setRequestHeader(key, headers[key])
     );
-    xhr.send(data)
-    xhr.onload = e => {
-      resolve({
-        data: e.target
-      });
-    };
+    xhr.onreadystatechange = (e) => {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          resolve({ data: e.target })
+        } else {
+          // 错误处理
+          reject(xhr.statusText);
+        }
+      }
+    }
     xhr.onerror = e => {
       reject(e)
     }
+    xhr.send(data)
   });
 }
 
@@ -58,7 +61,6 @@ class UploadService extends UploadLargeFile {
     return request({
       url: "http://localhost:3000/upload",
       data: formData,
-      cache: this.cacheRequest.bind(this),
       onProgress: (e) => this.onProgress(data, e)
     })
   }
@@ -86,7 +88,7 @@ class UploadService extends UploadLargeFile {
     }) as any).data.response)
     return {
       shouldUpload: res.shouldUpload as boolean,
-      uploadedList: res.uploadedList.map(idxs => ({
+      uploadedList: res.uploadedList?.map(idxs => ({
         startIdx: Number(idxs[0]),
         endIdx: Number(idxs[1]),
         status: "pass"
@@ -136,6 +138,7 @@ export default defineComponent({
         case "ready": ctx.value.fillStyle = "#666666"; break
         case "uploading": ctx.value.fillStyle = "#0088ff"; break
         case "uploaded": ctx.value.fillStyle = "#45c23a"; break
+        case "error": ctx.value.fillStyle = "#bc1717"; break
       }
       ctx.value.fillRect(Math.floor(x1), 0, Math.ceil(x2 - x1), 10)
     }

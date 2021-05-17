@@ -1,5 +1,5 @@
 // upload status
-export type UploadStatus = "pass" | "ready" | "uploading" | "uploaded"
+export type UploadStatus = "pass" | "ready" | "uploading" | "uploaded" | "error"
 
 export interface FileChunkDesc {
   startIdx: number
@@ -23,14 +23,18 @@ export class UploadHelper {
     private tryRequestTimes = 3,
   ) {}
 
+  private canceled = false
+
   async upload(
     file: File,
     uploadedFileList: FileChunkDesc[],
     uploadAPI: UploadAPI,
-    maxConnection: number = 4,
-    tryRequestTimes: number = 3
   ) {
     await this.slowStart(file, uploadedFileList, uploadAPI)
+  }
+
+  stop () {
+    this.canceled = true
   }
 
   private filterUploadedFileChunks(file: File, uploadedFileList: FileChunkDesc[]): FileChunk[] {
@@ -114,8 +118,28 @@ export class UploadHelper {
     offset: number,
     uploadAPI: UploadAPI,
   ) {
-    const start = Date.now()
-    const resp = await uploadAPI(chunk)
+    let resp: any
+    let errorTimes = this.tryRequestTimes
+    let start: number
+    while (errorTimes) {
+      start = Date.now()
+      try {
+        resp = await uploadAPI(chunk)
+        chunk.status = "uploaded"
+        this.cb([chunk])
+        break
+      } catch (error) {
+        resp = error
+        chunk.status = "ready"
+        this.cb([chunk])
+        errorTimes--
+        console.log("❌ error retry", this.tryRequestTimes - errorTimes);
+      }
+    }
+    if (chunk.status === "ready") {
+      chunk.status = "error"
+      this.cb([chunk])
+    }
     const fileOffset = this.resize(offset, start)
     return { resp, fileOffset }
   }
@@ -127,7 +151,7 @@ export class UploadHelper {
     uploadAPI: UploadAPI,
   ) {
     let max = this.maxConnection
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const result = []
       const next = () => {
         console.log("📃file offset", fileOffset)
@@ -148,12 +172,10 @@ export class UploadHelper {
             fileOffset = res.fileOffset
             result.push(res.resp)
           })
-          .catch((err) => {
-            reject(err)
-          })
           .finally(() => {
-            chunk.status = "uploaded"
-            this.cb([chunk])
+            if (this.canceled) {
+              chunkItor.return()
+            }
             next()
           })
       }
@@ -167,6 +189,8 @@ export class UploadHelper {
     const fileChunks = this.filterUploadedFileChunks(file, uploadedFileList)
     const fileChunksIteror = this.dynamicSize(file, fileChunks, fileOffset)
     const res = await this.requestWithConcurrent(fileChunksIteror, fileOffset, uploadAPI)
-    console.log("slowStart: exit", res)
+    this.canceled = false
+    this.cb([])
+    console.log("upload helper: exit", res)
   }
 }

@@ -43,7 +43,6 @@ export abstract class UploadLargeFile {
   private shareState: UploadFileServiceShareState
   private hashHelper: HashHelper
   private uploadHelper: UploadHelper
-  private cacheRequestList: Array<RequestInstance>
   public event = new Subject<UploadFileServiceShareState>()
 
   constructor (
@@ -51,7 +50,6 @@ export abstract class UploadLargeFile {
     maxConnection = 4,
     tryRequestTimes = 3,
   ) {
-    this.cacheRequestList = []
     this.state = {
       file: null,
       isUploading: false
@@ -92,27 +90,23 @@ export abstract class UploadLargeFile {
     ) return
     console.log("stop");
     this.shareState.canceled = true
-    this.shareState.hashPercent = 0
     this.shareState.fileChunksDesc = []
     this.hashHelper.stop()
-    this.cacheRequestList.forEach(req => req?.abort())
-    this.cacheRequestList = []
+    this.uploadHelper.stop()
     this.event.next({ ...this.shareState })
+  }
+
+  private reset () {
     // after stop reset helper
     this.state.isUploading = false
     this.shareState.canceled = false
     this.event.next({ ...this.shareState })
-    console.log("stop end");
-
+    console.log("uploader reset");
   }
 
   // change file
   public changeFile (file: File) {
     this.state.file = file
-  }
-
-  public cacheRequest (item: RequestInstance) {
-    this.cacheRequestList.push(item)
   }
 
   // upload file chunks
@@ -121,23 +115,34 @@ export abstract class UploadLargeFile {
       this.state.file?.size === 0
       || this.state.isUploading
     ) return
-    this.state.isUploading = true
     console.log("upload")
+    this.shareState.hashPercent = 0
+    this.state.isUploading = true
+    if (this.shareState.canceled) return this.reset()
     const filehash = await this.hashHelper.genHash(this.genHashType, this.state.file)
     // network cache uploaded files
+    if (this.shareState.canceled) return this.reset()
     const { shouldUpload, uploadedList } = await this.verifyAPI({
       filename: this.state.file.name,
       filehash,
     })
     if (!shouldUpload) {
+      this.shareState.fileChunksDesc = [{
+        startIdx: 0,
+        endIdx: this.state.file.size,
+        status: "uploaded"
+      }]
+      this.event.next({ ...this.shareState })
       return
     }
+    if (this.shareState.canceled) return this.reset()
     await this.uploadHelper.upload(
       this.state.file,
       uploadedList,
       (formData: FileChunk) => this.uploadAPI({ ...formData, filehash }),
     )
+    if (this.shareState.canceled) return this.reset()
     await this.mergeAPI({ filename: this.state.file.name, filehash })
-    console.log("upload end");
+    this.reset()
   }
 }

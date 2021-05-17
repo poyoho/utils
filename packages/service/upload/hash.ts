@@ -1,3 +1,4 @@
+import { Subscriber } from "rxjs"
 export type genHashType = "worker" | "wasm"
 
 export class HashHelper {
@@ -9,21 +10,28 @@ export class HashHelper {
   ) {}
 
   private worker: Worker
+  private ob: Subscriber<string>
 
-  public genHash (
+  public async genHash (
     type: genHashType,
     file: File,
   ) {
+    let hash: string
     switch(type) {
       case "worker":
-        return this.genHashByWorker(file)
+        hash = await this.genHashByWorker(file)
       case "wasm":
-        return this.genHashByASM(file)
+        hash = await this.genHashByASM(file)
     }
+    console.log("hash helper exit");
+    return hash
   }
 
   public stop () {
+    // stop worker
     this.worker?.terminate()
+    // promise return
+    this.ob?.next("")
   }
 
   // worker string function
@@ -110,6 +118,9 @@ export class HashHelper {
         `self.importScripts("${sparkSite}");\n`,
       ])
       this.worker = worker
+      this.ob = new Subscriber((value) => {
+        resolve(value)
+      })
       worker.postMessage({ file })
       worker.onmessage = (e) => {
         if (e.data.percent === 100) {
@@ -134,6 +145,9 @@ export class HashHelper {
         (script) => script.replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()")
       )
       this.worker = worker
+      this.ob = new Subscriber((value) => {
+        resolve(value)
+      })
       worker.onmessage = (e) => {
         switch(e.data.action) {
           case "init":
