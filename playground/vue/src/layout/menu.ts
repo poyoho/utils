@@ -50,7 +50,7 @@ export default defineComponent({
         router: true
       },
       {
-        default: () => [...routes, ...routes, ...routes, ...routes, ...routes, ...routes, ...routes, ...routes, ...routes, ...routes, ...routes, ...routes,...routes, ...routes, ...routes, ...routes, ...routes, ...routes,],
+        default: () => [...routes],
       },
     )
   },

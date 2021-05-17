@@ -1,9 +1,15 @@
 <template>
   <div class="app">
-    <DocHeader class="sticky top-0 z-50 w-full bg-white" />
+    <DocHeader class="sticky top-0 z-50 w-full bg-white border-b" />
     <div class="relative">
-      <Menu id="menu" class="scroll fixed w-60 overflow-y-auto" :route="routes" />
-      <RouterView class="w-full pl-72" />
+      <Menu id="menu" class="scroll fixed w-60 overflow-y-auto h-full" :route="routes" />
+      <div class="flex">
+        <div class="w-60"></div>
+        <div class="flex-1 p-5 overflow-x-hidden h-full">
+          <RouterView />
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
