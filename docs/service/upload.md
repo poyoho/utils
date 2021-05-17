@@ -8,7 +8,7 @@
 - [ ] 慢启动优化(根据网速计算切片size)
 - [x] 文件hash - none
 - [x] 文件hash - worker
-- [ ] 文件hash - webasm
+- [x] 文件hash - webasm
 - [x] 文件秒传
 - [x] 断点续传
 
@@ -21,6 +21,7 @@
 
 `文件内容hash`实现对文件秒传、断点续传，可以快速定位文件上传状态。
 * `文件hash`计算需要特比资源进行运算，通过`requestIdleCallback` / `web worker` / `WebAssembly` 进行算法优化。
+* `断点续传`使用`xhr.abort()`会清空js的调用栈。
 
 ## 使用
 

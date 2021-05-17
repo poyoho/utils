@@ -2,7 +2,7 @@ const path = require("path")
 const chalk = require("chalk")
 const rollup = require("rollup")
 const typescript = require("rollup-plugin-typescript2")
-const { terser } = require("rollup-plugin-terser")
+const { terser  } = require("rollup-plugin-terser")
 const dts = require("rollup-plugin-dts")
 const esbuild = require("rollup-plugin-esbuild")
 const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
@@ -21,9 +21,15 @@ async function build(pkgPath, subPath) {
         exclude: [
           "node_modules",
           "__tests__",
-        ]
+        ],
       }),
-      // importMetaAssets(),
+      importMetaAssets(),
+      terser({
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      }),
     ],
     external(id) {
       // 不打包deps的项目
@@ -33,6 +39,7 @@ async function build(pkgPath, subPath) {
   })
   await esm.write({
     format: "es",
+    sourcemap: true,
     dir: path.resolve(__dirname, `packages/${pkgPath}/dist/${subPath}`),
   })
   console.log(chalk.green(`${subPath} done`))
@@ -58,6 +65,12 @@ async function builddts(pkgPath) {
         abortOnError: false,
       }),
       importMetaAssets(),
+      terser({
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      }),
     ],
     external(id) {
       // 不打包deps的项目
@@ -68,6 +81,7 @@ async function builddts(pkgPath) {
   await esm.write({
     dir: outputDir,
     format: "es",
+    sourcemap: true
   })
   fs.move(path.join(outputDir, "index.js"), path.join(outputDir, "indes.esm.js"))
   console.log(chalk.blueBright(`${pkgPath} dts done`))
@@ -82,7 +96,7 @@ function main() {
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
-  // builddts(name)
+  builddts(name)
 }
 
 main()

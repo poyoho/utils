@@ -1,33 +1,18 @@
 import { Subject } from "rxjs"
 import { HashHelper, genHashType } from "./hash"
-import { UploadHelper } from "./upload"
-
-// file chunk
-export interface FileChunk {
-  index: number
-  chunk: Blob
-  hash: string
-  filename: string
-}
-
-// descript file chunk
-export interface FileChunkDesc {
-  name: string
-  size: number
-  percent: number
-}
+import { UploadHelper, FileChunk, FileChunkDesc } from "./upload"
 
 // this service save state
 export interface UploadLargeFileState {
   file: File
-  chunks: FileChunk[]
+  isUploading: boolean
 }
 
 export interface UploadFileServiceShareState {
-  fileChunksDesc: FileChunkDesc[]
-  hashPercent: number
+  fileChunksDesc: FileChunkDesc[] // startIdx endIdx
+  hashPercent: number // calc hash percent
+  canceled: boolean // has it been cancelled
 }
-
 
 export interface UploadFileParams extends FileChunk {
   filehash: string
@@ -44,112 +29,121 @@ export interface verifyUploadFileParamas {
   filehash: string
 }
 
+// stop runner
+export type RequestInstance = { abort(): void; }
+
+/**
+ * upload large file
+*/
 export abstract class UploadLargeFile {
-  private state: UploadLargeFileState = {
-    file: null,
-    chunks: []
-  }
-  private shardState: UploadFileServiceShareState = {
-    hashPercent: 0,
-    fileChunksDesc: [],
-  }
-  // calc file hash helper
-  private hashHelper = new HashHelper((hashPercent) => {
-    this.shardState.hashPercent = hashPercent
-    this.event.next({ ...this.shardState })
-  })
-
-  // upload chunks helper
-  private uploadHelper = new UploadHelper()
-
   abstract uploadAPI (data: UploadFileParams): Promise<any>
   abstract mergeAPI (data: FileMergeParams): Promise<any>
-  abstract verifyAPI (data: verifyUploadFileParamas): Promise<{
-    shouldUpload: boolean,
-    uploadedList: string[]
-  }>
-
+  abstract verifyAPI (data: verifyUploadFileParamas): Promise<{ shouldUpload: boolean, uploadedList: FileChunkDesc[] }>
+  private state: UploadLargeFileState
+  private shareState: UploadFileServiceShareState
+  private hashHelper: HashHelper
+  private uploadHelper: UploadHelper
   public event = new Subject<UploadFileServiceShareState>()
 
   constructor (
     private genHashType: genHashType = "wasm",
-    private maxConnection = 4,
-    private tryRequest = 3,
-    public SIZE = 100 * 1024 * 1024
+    maxConnection = 4,
+    tryRequestTimes = 3,
   ) {
-    //
+    this.state = {
+      file: null,
+      isUploading: false
+    }
+    this.shareState = {
+      hashPercent: 0,
+      canceled: false,
+      fileChunksDesc: [],
+    }
+    // calc file hash helper
+    this.hashHelper = new HashHelper(
+      (hashPercent) => {
+        if (!this.shareState.canceled) {
+          this.shareState.hashPercent = hashPercent
+          this.event.next({ ...this.shareState })
+        }
+      },
+      50 * 1024 * 1024, // 50M
+      10 * 1024 * 1024, // 5M
+      1024 * 1024, // 1M
+    )
+
+    // upload chunks helper
+    this.uploadHelper = new UploadHelper(
+      (fileChunksDesc) => {
+        this.shareState.fileChunksDesc = fileChunksDesc
+        this.event.next({ ...this.shareState })
+      },
+      maxConnection,
+      tryRequestTimes
+    )
+  }
+
+  public stop() {
+    if (
+      this.shareState.canceled
+      || !this.state.isUploading
+    ) return
+    console.log("stop");
+    this.shareState.canceled = true
+    this.shareState.fileChunksDesc = []
+    this.hashHelper.stop()
+    this.uploadHelper.stop()
+    this.event.next({ ...this.shareState })
+  }
+
+  private reset () {
+    // after stop reset helper
+    this.state.isUploading = false
+    this.shareState.canceled = false
+    this.shareState.fileChunksDesc = []
+    this.event.next({ ...this.shareState })
+    console.log("uploader reset");
   }
 
   // change file
   public changeFile (file: File) {
     this.state.file = file
-    this.state.chunks = []
   }
 
   // upload file chunks
-  public async uploadFileChunk () {
-    this.createFileChunk()
-    if (!this.state.chunks.length) return
-    console.time("hash")
+  public async upload () {
+    if (
+      this.state.file?.size === 0
+      || this.state.isUploading
+    ) return
+    console.log("upload")
+    this.shareState.hashPercent = 0
+    this.state.isUploading = true
+    if (this.shareState.canceled) return this.reset()
     const filehash = await this.hashHelper.genHash(this.genHashType, this.state.file)
-    console.timeEnd("hash")
     // network cache uploaded files
+    if (this.shareState.canceled) return this.reset()
     const { shouldUpload, uploadedList } = await this.verifyAPI({
       filename: this.state.file.name,
       filehash,
     })
     if (!shouldUpload) {
-      // reflush progress
-      this.shardState.fileChunksDesc = this.state.chunks.map(el => ({
-        percent: 102,
-        name: el.hash,
-        size: el.chunk.size
-      }))
-      this.event.next({ ...this.shardState })
+      this.shareState.fileChunksDesc = [{
+        startIdx: 0,
+        endIdx: this.state.file.size,
+        status: "uploaded"
+      }]
+      this.event.next({ ...this.shareState })
       return
     }
-    // uploading
-    const fileChunksDesc: FileChunkDesc[] = []
-    const uploadChunks = this.state.chunks
-      .filter(el => {
-        if (uploadedList.includes(el.hash)) {
-          fileChunksDesc.push({
-            name: el.hash,
-            size: el.chunk.size,
-            percent: 101
-          })
-          return false
-        } else {
-          fileChunksDesc.push({
-            name: el.hash,
-            size: el.chunk.size,
-            percent: 0
-          })
-          return true
-        }
-      })
-      .map(formData => () => this.uploadAPI({ ...formData, filehash }))
-    this.shardState.fileChunksDesc = fileChunksDesc
-    this.event.next({ ...this.shardState })
-    await this.uploadHelper.tryAllWithMax(uploadChunks, this.maxConnection, this.tryRequest)
-
+    if (this.shareState.canceled) return this.reset()
+    await this.uploadHelper.upload(
+      this.state.file,
+      uploadedList,
+      (formData: FileChunk) => this.uploadAPI({ ...formData, filehash }),
+    )
+    if (this.shareState.canceled) return this.reset()
     await this.mergeAPI({ filename: this.state.file.name, filehash })
-    this.shardState.fileChunksDesc = fileChunksDesc.map(el => (el.percent = 102) && el)
-    this.event.next({ ...this.shardState })
-  }
-
-  // chunk large file
-  private createFileChunk () {
-    if (!this.state.file) return
-    const chunkList = [] as Blob[]
-    for (let cur = 0; cur < this.state.file.size; cur += this.SIZE) {
-      chunkList.push(this.state.file.slice(cur, cur + this.SIZE))
-    }
-    this.state.chunks = chunkList.map((chunk, index) => ({
-      index,
-      chunk,
-      filename: this.state.file.name,
-      hash: this.state.file.name + "-" + index
-    }))
+    this.reset()
   }
 }
