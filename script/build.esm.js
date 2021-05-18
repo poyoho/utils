@@ -7,12 +7,14 @@ const dts = require("rollup-plugin-dts")
 const esbuild = require("rollup-plugin-esbuild")
 const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
 const fs = require("fs-extra")
+const rm = require("rimraf")
 
 __dirname = path.join(__dirname, "..")
 
 async function build(pkgPath, subPath) {
   const pkgs = require(path.resolve(__dirname, `packages/${pkgPath}/package.json`)).peerDependencies || {}
   const deps = Object.keys(pkgs)
+  console.log(path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`));
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`),
     plugins: [
@@ -42,7 +44,7 @@ async function build(pkgPath, subPath) {
     sourcemap: true,
     dir: path.resolve(__dirname, `packages/${pkgPath}/dist/${subPath}`),
   })
-  console.log(chalk.green(`${subPath} done`))
+  console.log(chalk.green(`${pkgPath}/${subPath} done`))
 }
 
 async function builddts(pkgPath) {
@@ -88,18 +90,30 @@ async function builddts(pkgPath) {
   console.log(chalk.blueBright(`${pkgPath} dts done`))
 }
 
-function packaging(name, externalList) {
+function rmDir(dir) {
+  return new Promise((resolve) => {
+    rm(dir, {}, () => {
+      resolve()
+    })
+  })
+}
+
+async function packaging(name, externalList) {
   const pkgPath = path.resolve(__dirname, `packages/${name}/`)
+  await rmDir(path.join(pkgPath, "dist"))
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
   builddts(name)
 }
 
+
 // services
 function main() {
-  packaging("service", ["index.ts", "package.json", "dist", "third"])
-  packaging("util", ["index.ts", "package.json", "dist"])
+  const baseBlackList = ["index.ts", "package.json", "dist"]
+  packaging("service", [...baseBlackList, "third"])
+  packaging("util", baseBlackList)
+  packaging("cache", baseBlackList)
 }
 
 main()

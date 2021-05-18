@@ -1,11 +1,15 @@
 <template>
   <div class="app">
-    <DocHeader class="header" />
+    <DocHeader class="sticky top-0 z-50 w-full bg-white border-b" />
     <div class="relative">
-      <Menu class="menu" :route="routes" />
-      <div class="view">
-        <RouterView />
+      <Menu id="menu" class="scroll fixed w-60 overflow-y-auto h-full" :route="routes" />
+      <div class="flex">
+        <div class="w-60"></div>
+        <div class="flex-1 p-5 overflow-x-hidden h-full">
+          <RouterView />
+        </div>
       </div>
+
     </div>
   </div>
 </template>
@@ -29,30 +33,3 @@ export default defineComponent({
   },
 })
 </script>
-<style scoped>
-.app {
-  width: 1080px;
-  margin: 0 auto;
-}
-.header {
-  display: flex;
-  position: sticky;
-  justify-content: space-between;
-  z-index: 50;
-  top: 0;
-  width: 100%;
-  background: #fff;
-  padding: 0 30px;
-  border-bottom: 1px solid #e6e6e6;
-}
-
-.menu {
-  position: fixed;
-  width: 140px;
-  height: 100%;
-  overflow-y: auto;
-}
-.view {
-  margin-left: 160px;
-}
-</style>
