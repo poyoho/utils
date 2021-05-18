@@ -7,6 +7,7 @@ const dts = require("rollup-plugin-dts")
 const esbuild = require("rollup-plugin-esbuild")
 const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
 const fs = require("fs-extra")
+const rm = require("rimraf")
 
 __dirname = path.join(__dirname, "..")
 
@@ -89,13 +90,23 @@ async function builddts(pkgPath) {
   console.log(chalk.blueBright(`${pkgPath} dts done`))
 }
 
-function packaging(name, externalList) {
+function rmDir(dir) {
+  return new Promise((resolve) => {
+    rm(dir, {}, () => {
+      resolve()
+    })
+  })
+}
+
+async function packaging(name, externalList) {
   const pkgPath = path.resolve(__dirname, `packages/${name}/`)
+  await rmDir(path.join(pkgPath, "dist"))
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
   builddts(name)
 }
+
 
 // services
 function main() {
