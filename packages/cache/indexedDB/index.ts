@@ -1,3 +1,2 @@
-export * from "./db"
-export * from "./table"
-const a = 100
+import DBHelper from "./db"
+export default DBHelper

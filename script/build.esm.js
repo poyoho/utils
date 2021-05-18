@@ -13,6 +13,7 @@ __dirname = path.join(__dirname, "..")
 async function build(pkgPath, subPath) {
   const pkgs = require(path.resolve(__dirname, `packages/${pkgPath}/package.json`)).peerDependencies || {}
   const deps = Object.keys(pkgs)
+  console.log(path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`));
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`),
     plugins: [
@@ -93,14 +94,14 @@ function packaging(name, externalList) {
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
-  // builddts(name)
+  builddts(name)
 }
 
 // services
 function main() {
   const baseBlackList = ["index.ts", "package.json", "dist"]
-  // packaging("service", [...baseBlackList, "third"])
-  // packaging("util", baseBlackList)
+  packaging("service", [...baseBlackList, "third"])
+  packaging("util", baseBlackList)
   packaging("cache", baseBlackList)
 }
 
