@@ -42,7 +42,7 @@ async function build(pkgPath, subPath) {
     sourcemap: true,
     dir: path.resolve(__dirname, `packages/${pkgPath}/dist/${subPath}`),
   })
-  console.log(chalk.green(`${subPath} done`))
+  console.log(chalk.green(`${pkgPath}/${subPath} done`))
 }
 
 async function builddts(pkgPath) {
@@ -93,13 +93,15 @@ function packaging(name, externalList) {
   const subPaths = fs.readdirSync(pkgPath).map(el => el.replace(pkgPath, "")).filter(el => !externalList.includes(el))
 
   subPaths.forEach(p => build(name, p))
-  builddts(name)
+  // builddts(name)
 }
 
 // services
 function main() {
-  packaging("service", ["index.ts", "package.json", "dist", "third"])
-  packaging("util", ["index.ts", "package.json", "dist"])
+  const baseBlackList = ["index.ts", "package.json", "dist"]
+  // packaging("service", [...baseBlackList, "third"])
+  // packaging("util", baseBlackList)
+  packaging("cache", baseBlackList)
 }
 
 main()
