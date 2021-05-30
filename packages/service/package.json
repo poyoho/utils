@@ -9,7 +9,6 @@
   "license": "MIT",
   "version": "0.0.5",
   "dependencies": {
-    "rxjs": "^6.6.7"
   },
   "devDependencies": {
   }

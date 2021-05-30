@@ -1,41 +1,28 @@
-import { Subscriber } from "rxjs"
+import { useWorker, useWASMWorker } from "@poyoho/shared-service/worker"
 export type genHashType = "worker" | "wasm"
 
-export class HashHelper {
-  constructor(
-    private cb: (percent: number) => void = () => {},
-    private FILE_OFFSET = 50 * 1024 * 1024, // 50M
-    private CHUNK_OFFSET = 10 * 1024 * 1024, // 5M
-    private CALC_CHUNK = 1024 * 1024, // 1M
-  ) {}
+type StateCallback = (hash: string) => void;
 
-  private worker: Worker
-  private ob: Subscriber<string>
 
-  public async genHash (
-    type: genHashType,
-    file: File,
-  ) {
-    let hash: string
-    switch(type) {
-      case "worker":
-        hash = await this.genHashByWorker(file)
-      case "wasm":
-        hash = await this.genHashByASM(file)
-    }
-    console.log("hash helper exit");
-    return hash
+export function useFileHashCalculator(
+  cb: (percent: number) => void = () => {},
+  FILE_OFFSET = 50 * 1024 * 1024, // 50M
+  CHUNK_OFFSET = 10 * 1024 * 1024, // 5M
+  CALC_CHUNK = 1024 * 1024, // 1M
+) {
+  let worker: Worker
+  let eventCb: StateCallback = () => {}
+
+  function _emit (state: string) {
+    eventCb(state)
   }
 
-  public stop () {
-    // stop worker
-    this.worker?.terminate()
-    // promise return
-    this.ob?.next("")
+  function subscribe (cb: StateCallback) {
+    eventCb = cb
   }
 
   // worker string function
-  private _worker (this: any) {
+  function _workerScript() {
     // similar to the Bloom filter
     // take part of the data as a hash
     // MD5 is also vulnerable
@@ -91,34 +78,21 @@ export class HashHelper {
     }
   }
 
-  private callWorker (
-    importScripts: string[],
-    formatScript: (str: string) => string = (str) => str
-  ) {
-    const workerScript = this._worker.toString().replace("this.FILE_OFFSET", String(this.FILE_OFFSET))
-      .replace("this.CHUNK_OFFSET", String(this.CHUNK_OFFSET))
-      .replace("this.CALC_CHUNK", String(this.CALC_CHUNK))
-
-    const workerData = new Blob(
-      [
-        ...importScripts,
-        formatScript(`(function ${workerScript})()`)
-      ],
-      { type: "text/javascript" }
-    )
-
-    return new Worker(URL.createObjectURL(workerData))
-  }
-
   // gen hash by worker
-  private genHashByWorker (file: File): Promise<string> {
+  const genHashByWorker = (file: File): Promise<string> => {
     return new Promise(resolve => {
       const sparkSite = new URL("../third/spark-md5.min.js", import.meta.url)
-      const worker = this.callWorker([
+      const _worker = useWorker(
+        [
         `self.importScripts("${sparkSite}");\n`,
-      ])
-      this.worker = worker
-      this.ob = new Subscriber((value) => {
+        ],
+        _workerScript.toString()
+          .replace("this.FILE_OFFSET", String(FILE_OFFSET))
+          .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
+          .replace("this.CALC_CHUNK", String(CALC_CHUNK)),
+      )
+      worker = _worker
+      subscribe((value) => {
         resolve(value)
       })
       worker.postMessage({ file })
@@ -127,25 +101,29 @@ export class HashHelper {
           console.log(e.data.hash);
           resolve(e.data.hash)
         }
-        this.cb(e.data.percent)
+        cb(e.data.percent)
       }
     })
   }
 
   // by request idle callback
-  private async genHashByASM (file: File): Promise<string> {
+  const genHashByASM = (file: File): Promise<string> =>  {
     return new Promise(resolve => {
       const sparkSite = new URL("../third/wasm/hash/hash.js", import.meta.url)
       const wasmSite = new URL('../third/wasm/hash/hash_bg.wasm', import.meta.url)
-      const worker = this.callWorker(
+      const _worker = useWASMWorker(
         [
           `self.importScripts("${sparkSite}");\n`,
-          `wasm_bindgen("${wasmSite}").then(() => this.postMessage({ action: "init" }));\n`,
         ],
-        (script) => script.replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()")
+        _workerScript.toString()
+          .replace("this.FILE_OFFSET", String(FILE_OFFSET))
+          .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
+          .replace("this.CALC_CHUNK", String(CALC_CHUNK))
+          .replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()"),
+        wasmSite,
       )
-      this.worker = worker
-      this.ob = new Subscriber((value) => {
+      worker = _worker
+      subscribe((value) => {
         resolve(value)
       })
       worker.onmessage = (e) => {
@@ -158,10 +136,33 @@ export class HashHelper {
               console.log(e.data.hash);
               resolve(e.data.hash)
             }
-            this.cb(e.data.percent)
+            cb(e.data.percent)
             break
         }
       }
     })
+  }
+
+  return {
+    async genHash (
+      type: genHashType,
+      file: File,
+    ) {
+      let hash: string
+      switch(type) {
+        case "worker":
+          hash = await genHashByWorker(file)
+        case "wasm":
+          hash = await genHashByASM(file)
+      }
+      console.log("hash helper exit");
+      return hash
+    },
+    stop () {
+      // stop worker
+      worker?.terminate()
+      // promise return
+      _emit("")
+    }
   }
 }
