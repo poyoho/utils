@@ -40,24 +40,7 @@
 <script lang="ts">
 import { defineComponent, reactive, ref } from "vue"
 import { request, RetType, Query } from "../../../mock/requestData"
-import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service/pagination-select"
-
-class SelectedService extends PaginationSelect<Query, RetType> {
-  useFetchDataKey () {
-    return {
-      list: "list",
-      total: "total"
-    }
-  }
-
-  equal() {
-    return "a"
-  }
-
-  fetchData(query: Query): Promise<Record<string,any>> {
-    return request(query)
-  }
-}
+import { usePaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service/pagination-select"
 
 
 export default defineComponent({
@@ -82,7 +65,11 @@ export default defineComponent({
       useLocal: false,
     })
 
-    const selectService = new SelectedService()
+    const selectService = usePaginationSelect<Query, RetType>(
+      () => "a",
+      (query: Query) => request(query),
+      () => ({ list: "list", total: "total"})
+    )
 
     selectService.event.subscribe(state => {
       selectState.value = state

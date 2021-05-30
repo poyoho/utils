@@ -12,7 +12,7 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, reactive, ref } from "vue"
-import { UploadLargeFile, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service/upload"
+import { useLargeFileHashAndUploader, UploadFileParams, FileMergeParams, verifyUploadFileParamas } from "@poyoho/shared-service/upload"
 import { FileChunkDesc, UploadStatus } from "@poyoho/shared-service/upload/upload";
 
 export function request({
@@ -46,59 +46,59 @@ export function request({
   });
 }
 
-class UploadService extends UploadLargeFile {
-  constructor (private onProgress: (fileChunkDesc: FileChunkDesc, e: ProgressEvent<EventTarget>) => void = () => {}) {
-    super()
-  }
-
-  uploadAPI (data: UploadFileParams) {
-    const formData = new FormData()
-    formData.append("chunk", data.chunk)
-    formData.append("start_idx", data.startIdx.toString())
-    formData.append("end_idx", data.endIdx.toString())
-    formData.append("filename", data.filename)
-    formData.append("filehash", data.filehash)
-    return request({
-      url: "http://localhost:3000/upload",
-      data: formData,
-      onProgress: (e) => this.onProgress(data, e)
-    })
-  }
-
-  mergeAPI (data: FileMergeParams) {
-    return request({
-      url: "http://localhost:3000/merge",
-      headers: {
-        "content-type": "application/json"
-      },
-      data: JSON.stringify(data)
-    })
-  }
-
-  async verifyAPI (data: verifyUploadFileParamas): Promise<{
-    shouldUpload: boolean,
-    uploadedList: FileChunkDesc[]
-  }> {
-    const res = JSON.parse((await request({
-      url: "http://localhost:3000/verify",
-      headers: {
-        "content-type": "application/json"
-      },
-      data: JSON.stringify(data)
-    }) as any).data.response)
-    return {
-      shouldUpload: res.shouldUpload as boolean,
-      uploadedList: res.uploadedList?.map(idxs => ({
-        startIdx: Number(idxs[0]),
-        endIdx: Number(idxs[1]),
-        status: "pass"
-      }))
-    }
-  }
-}
-
 export default defineComponent({
   setup() {
+    function uploadAPI (data: UploadFileParams) {
+      const formData = new FormData()
+      formData.append("chunk", data.chunk)
+      formData.append("start_idx", data.startIdx.toString())
+      formData.append("end_idx", data.endIdx.toString())
+      formData.append("filename", data.filename)
+      formData.append("filehash", data.filehash)
+      return request({
+        url: "http://localhost:3000/upload",
+        data: formData,
+        onProgress: (e) => {
+          const percent =  e.loaded / e.total
+          const offset = data.endIdx - data.startIdx
+          const start = data.startIdx
+          const end = data.startIdx + Math.ceil(offset * percent)
+          drawPercent(start, end, "uploading")
+        }
+      })
+    }
+
+    function mergeAPI (data: FileMergeParams) {
+      return request({
+        url: "http://localhost:3000/merge",
+        headers: {
+          "content-type": "application/json"
+        },
+        data: JSON.stringify(data)
+      })
+    }
+
+    async function verifyAPI (data: verifyUploadFileParamas): Promise<{
+      shouldUpload: boolean,
+      uploadedList: FileChunkDesc[]
+    }> {
+      const res = JSON.parse((await request({
+        url: "http://localhost:3000/verify",
+        headers: {
+          "content-type": "application/json"
+        },
+        data: JSON.stringify(data)
+      }) as any).data.response)
+      return {
+        shouldUpload: res.shouldUpload as boolean,
+        uploadedList: res.uploadedList?.map(idxs => ({
+          startIdx: Number(idxs[0]),
+          endIdx: Number(idxs[1]),
+          status: "pass"
+        }))
+      }
+    }
+
     const uploadState = reactive({
       size: 0,
       hashPercent: 0,
@@ -106,14 +106,12 @@ export default defineComponent({
     })
     const canvas = ref<HTMLCanvasElement>()
     const ctx = ref<CanvasRenderingContext2D>()
-    // xhr请求的progress
-    const uploadService = new UploadService((chunk, e) => {
-      const percent =  e.loaded / e.total
-      const offset = chunk.endIdx - chunk.startIdx
-      const start = chunk.startIdx
-      const end = chunk.startIdx + Math.ceil(offset * percent)
-      drawPercent(start, end, "uploading")
-    })
+
+    const uploadService = useLargeFileHashAndUploader(
+      uploadAPI,
+      mergeAPI,
+      verifyAPI,
+    )
 
     uploadService.event.subscribe(state => {
       uploadState.hashPercent = Math.ceil(state.hashPercent)
@@ -122,6 +120,8 @@ export default defineComponent({
         drawPercent(chunk.startIdx, chunk.endIdx, chunk.status)
       })
     })
+
+
 
     onMounted(() => {
       ctx.value = canvas.value.getContext("2d")

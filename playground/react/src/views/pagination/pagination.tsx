@@ -1,27 +1,14 @@
 import React, { useRef, useState, useMemo } from "react"
 import { Table, Input, Button } from "antd"
 import { request, RetType, Query, columns } from "../../../../mock/requestData"
-import { PaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service"
-
-class SelectedService extends PaginationSelect<Query, RetType> {
-  useFetchDataKey () {
-    return {
-      list: "list",
-      total: "total"
-    }
-  }
-
-  equal(o: RetType,n: RetType): boolean {
-    return o.a === n.a
-  }
-
-  fetchData(query: Query): Promise<Record<string,any>> {
-    return request(query)
-  }
-}
+import { usePaginationSelect, PaginationSelectState, SelectableRow } from "@poyoho/shared-service"
 
 const Pagination: React.FC = () => {
-  const selectService = useRef(new SelectedService())
+  const selectService = useRef(usePaginationSelect<Query, RetType>(
+    () => "a",
+    (query: Query) => request(query),
+    () => ({ list: "list", total: "total"})
+  ))
   const [selectState, setSelectState] = useState<PaginationSelectState<SelectableRow<RetType>>>({
     selectCount: 0,
     pageSelectCount: 0,

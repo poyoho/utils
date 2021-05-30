@@ -16,76 +16,56 @@ export interface PaginationSelectState<State> {
 
 export type SelectableRow<State> = State & { $selected: boolean }
 
-export abstract class PaginationSelect<QueryParams extends PaginationParams, State> {
-  private state = {
+type equalFn<State> = (o?: State, n?: State) => boolean | string | number
+type fetchFn<QueryParams> = (query: QueryParams) => Promise<Record<string, any>>
+type fetchDataKeyFn = () => { list: string, total: string }
+
+export function usePaginationSelect<QueryParams extends PaginationParams, State>(
+  // diff row
+  equal: equalFn<State>,
+  // request data
+  fetchData: fetchFn<QueryParams>,
+  // use fetch data return key
+  useFetchDataKey: fetchDataKeyFn
+) {
+  let noRefreshed = false
+  let selectRows: diff<SelectableRow<State>>
+
+  const state = {
     selectCount: 0,
     selectAll: false,
     list: [] as SelectableRow<State>[],
     pageSelectCount: 0,
     total: 0,
   } as PaginationSelectState<SelectableRow<State>>
-  private noRefreshed = false
-  private selectRows: diff<SelectableRow<State>>
-  private cache = {
+  const event = new Subject<PaginationSelectState<SelectableRow<State>>>()
+
+  const cache = {
     rows: [] as SelectableRow<State>[], // cache rows when request of local data
     useLocal: false,
   }
 
-  public event = new Subject<PaginationSelectState<SelectableRow<State>>>()
-
-  // diff row
-  abstract equal (o?: State, n?: State): boolean | string | number
-  // request data
-  abstract fetchData (query: QueryParams): Promise<Record<string, any>>
-  // use fetch data return key
-  abstract useFetchDataKey (): { list: string, total: string }
-
-  constructor () {
-    try {
-      const key = this.equal() as string | number
-      this.selectRows = new diffListByKey<SelectableRow<State>>(key)
-    } catch (e) {
-      this.selectRows = new diffListByBoolean<SelectableRow<State>>(this.equal as FunctionEqual<State>)
-    }
+  try {
+    const key = equal() as string | number
+    selectRows = new diffListByKey<SelectableRow<State>>(key)
+  } catch (e) {
+    selectRows = new diffListByBoolean<SelectableRow<State>>(equal as FunctionEqual<State>)
   }
 
-  // get rows
-  public selectData () {
-    return this.selectRows.value()
-  }
-
-  public async refresh (params: QueryParams, useLocal: boolean) {
-    await this.requestData(params, useLocal).then(res => {
-      this.state.pageSelectCount = 0
-      this.noRefreshed = true
-      this.state.list = res.list
-      this.state.total = res.total
-      // dafa format
-      this.state.list.forEach(el => {
-        el.$selected = this.state.selectAll ? true : (this.selectRows.has(el) !== undefined)
-        if (el.$selected) this.state.pageSelectCount++
-      })
-      this.event.next({
-        ...this.state,
-        selectCount: this.state.selectAll ? this.state.total : this.selectRows.length(),
-      })
-    })
-  }
-
-  private async requestData (params: QueryParams, useLocal: boolean) {
-    if (this.cache.useLocal !== useLocal) {
-      if (useLocal && !this.state.selectAll) {
-        this.cache.rows = this.selectRows.value()
+  const _requestData = async (params: QueryParams, useLocal: boolean) => {
+    if (cache.useLocal !== useLocal) {
+      if (useLocal && !state.selectAll) {
+        cache.rows = selectRows.value()
       } else {
-        this.cache.rows = []
+        cache.rows = []
       }
-      this.cache.useLocal = useLocal
+      cache.useLocal = useLocal
     }
-    if (useLocal && !this.state.selectAll) {
-      return this.localData(params)
+    if (useLocal && !state.selectAll) {
+      return _localData(params)
     } else {
-      return this.fetchData(params).then(res => {
-        const key = this.useFetchDataKey()
+      return fetchData(params).then(res => {
+        const key = useFetchDataKey()
         return {
           total: res[key.total],
           list: res[key.list]
@@ -94,103 +74,137 @@ export abstract class PaginationSelect<QueryParams extends PaginationParams, Sta
     }
   }
 
-  private localData (query: QueryParams): Promise<Record<string, any>> {
+  const _localData = (query: QueryParams): Promise<Record<string, any>> => {
     const startIndex = (query.page - 1) * query.limit
     return  Promise.resolve({
-      list: this.cache.rows.slice(startIndex, startIndex + query.limit),
-      total: this.cache.rows.length,
+      list: cache.rows.slice(startIndex, startIndex + query.limit),
+      total: cache.rows.length,
+    })
+  }
+
+  // get rows
+  const selectData = () => {
+    return selectRows.value()
+  }
+
+  const refresh = async (params: QueryParams, useLocal: boolean) => {
+    await _requestData(params, useLocal).then(res => {
+      state.pageSelectCount = 0
+      noRefreshed = true
+      state.list = res.list
+      state.total = res.total
+      // dafa format
+      state.list.forEach(el => {
+        el.$selected = state.selectAll ? true : (selectRows.has(el) !== undefined)
+        if (el.$selected) state.pageSelectCount++
+      })
+      event.next({
+        ...state,
+        selectCount: state.selectAll ? state.total : selectRows.length(),
+      })
     })
   }
 
   // select row merge to row
-  public SelectMergeRow (selectRows: State[], currentRow?: any) {
+  const SelectMergeRow = (userSelectRows: State[], currentRow?: any) => {
     let done = false
-    if(this.state.selectAll) {
+    if(state.selectAll) {
       return
     }
     if (currentRow) { // select one
       done = true
-      const idx = this.selectRows.has(currentRow as SelectableRow<State>)
-      // const ele = this.state.list.find(el => this.selectRows.equal(el, currentRow))!
+      const idx = selectRows.has(currentRow as SelectableRow<State>)
+      // const ele = state.list.find(el => selectRows.equal(el, currentRow))!
       if (idx !== undefined) {
         currentRow.$selected = false
-        this.selectRows.del(idx)
-        this.state.pageSelectCount--
+        selectRows.del(idx)
+        state.pageSelectCount--
       } else {
         currentRow.$selected = true
-        this.selectRows.push(currentRow)
-        this.state.pageSelectCount++
+        selectRows.push(currentRow)
+        state.pageSelectCount++
       }
     } else {
-      if (selectRows.length === this.state.list.length) { // select all
+      if (userSelectRows.length === state.list.length) { // select all
         done = true
-        this.state.pageSelectCount = this.state.list.length
-        this.state.list.forEach(row => {
+        state.pageSelectCount = state.list.length
+        state.list.forEach(row => {
           row.$selected = true
-          const idx = this.selectRows.has(row)
+          const idx = selectRows.has(row)
           if (idx === undefined) {
-            this.selectRows.push(row)
+            selectRows.push(row)
           }
         })
-        this.state.selectCount = this.state.list.length
-      } else if (selectRows.length === 0 && !this.noRefreshed) { // select cancel
+        state.selectCount = state.list.length
+      } else if (userSelectRows.length === 0 && !noRefreshed) { // select cancel
         done = true
-        this.state.pageSelectCount = 0
-        this.state.list.forEach(row => {
+        state.pageSelectCount = 0
+        state.list.forEach(row => {
           row.$selected = false
-          const idx = this.selectRows.has(row)
+          const idx = selectRows.has(row)
           if (idx !== undefined) {
-            this.selectRows.del(idx)
+            selectRows.del(idx)
           }
         })
       }
     }
-    this.noRefreshed = false
+    noRefreshed = false
     if (done) {
-      // console.log('SelectMergeRow', this.rows, selectRows, currentRow)
-      this.event.next({
-        ...this.state,
-        selectCount: this.state.selectAll ? this.state.total : this.selectRows.length(),
+      // console.log('SelectMergeRow', rows, selectRows, currentRow)
+      event.next({
+        ...state,
+        selectCount: state.selectAll ? state.total : selectRows.length(),
       })
     }
   }
 
   // select all
-  public selectAll () {
-    this.selectRows.clear()
-    this.state.selectAll = true
-    this.noRefreshed = false
-    this.event.next({
-      ...this.state,
-      list: this.state.list.map(ele => (ele.$selected = true) && ele),
-      selectCount: this.state.total,
+  const selectAll = () => {
+    selectRows.clear()
+    state.selectAll = true
+    noRefreshed = false
+    event.next({
+      ...state,
+      list: state.list.map(ele => (ele.$selected = true) && ele),
+      selectCount: state.total,
     })
   }
 
   // select cancel
-  public selectCancel () {
-    this.selectRows.clear()
-    this.state.selectAll = false
-    this.noRefreshed = false
-    this.state.pageSelectCount = 0
-    this.event.next({
-      ...this.state,
-      list: this.state.list.map(ele => (ele.$selected = false) || ele),
+  const selectCancel = () => {
+    selectRows.clear()
+    state.selectAll = false
+    noRefreshed = false
+    state.pageSelectCount = 0
+    event.next({
+      ...state,
+      list: state.list.map(ele => (ele.$selected = false) || ele),
       selectCount: 0
     })
   }
 
-  // select page all / cancel
-  togglePageSelect (check?: boolean) {
-    this.noRefreshed = false
+    // select page all / cancel
+  const togglePageSelect = (check?: boolean) => {
+    noRefreshed = false
     if (
       (typeof check !== 'undefined' && check) ||
-      (this.state.pageSelectCount !== this.state.list.length)
+      (state.pageSelectCount !== state.list.length)
     ) {
-      this.SelectMergeRow(this.state.list)
+      SelectMergeRow(state.list)
     } else {
-      this.SelectMergeRow([])
+      SelectMergeRow([])
     }
-    // console.log(this.selectRows);
+    // console.log(selectRows);
+  }
+
+  return {
+    event,
+
+    selectData,
+    refresh,
+    SelectMergeRow,
+    selectAll,
+    selectCancel,
+    togglePageSelect,
   }
 }
