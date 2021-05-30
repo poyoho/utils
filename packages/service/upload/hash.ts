@@ -1,4 +1,4 @@
-import { useWorker } from "@poyoho/shared-service/worker"
+import { useWorker, useWASMWorker } from "@poyoho/shared-service/worker"
 export type genHashType = "worker" | "wasm"
 
 type StateCallback = (hash: string) => void;
@@ -22,7 +22,7 @@ export function useFileHashCalculator(
   }
 
   // worker string function
-  function _worker() {
+  function _workerScript() {
     // similar to the Bloom filter
     // take part of the data as a hash
     // MD5 is also vulnerable
@@ -78,29 +78,19 @@ export function useFileHashCalculator(
     }
   }
 
-  function _callWorker (
-    importScripts: string[],
-    formatScript: (str: string) => string = (str) => str
-  ) {
-    return useWorker(
-      importScripts,
-      [
-        formatScript(
-          _worker.toString().replace("this.FILE_OFFSET", String(FILE_OFFSET))
-            .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
-            .replace("this.CALC_CHUNK", String(CALC_CHUNK))
-        )
-      ].join("\n")
-    )
-  }
-
   // gen hash by worker
   const genHashByWorker = (file: File): Promise<string> => {
     return new Promise(resolve => {
       const sparkSite = new URL("../third/spark-md5.min.js", import.meta.url)
-      const _worker = _callWorker([
+      const _worker = useWorker(
+        [
         `self.importScripts("${sparkSite}");\n`,
-      ])
+        ],
+        _workerScript.toString()
+          .replace("this.FILE_OFFSET", String(FILE_OFFSET))
+          .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
+          .replace("this.CALC_CHUNK", String(CALC_CHUNK)),
+      )
       worker = _worker
       subscribe((value) => {
         resolve(value)
@@ -121,12 +111,16 @@ export function useFileHashCalculator(
     return new Promise(resolve => {
       const sparkSite = new URL("../third/wasm/hash/hash.js", import.meta.url)
       const wasmSite = new URL('../third/wasm/hash/hash_bg.wasm', import.meta.url)
-      const _worker = _callWorker(
+      const _worker = useWASMWorker(
         [
           `self.importScripts("${sparkSite}");\n`,
-          `wasm_bindgen("${wasmSite}").then(() => this.postMessage({ action: "init" }));\n`,
         ],
-        (script) => script.replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()")
+        _workerScript.toString()
+          .replace("this.FILE_OFFSET", String(FILE_OFFSET))
+          .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
+          .replace("this.CALC_CHUNK", String(CALC_CHUNK))
+          .replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()"),
+        wasmSite,
       )
       worker = _worker
       subscribe((value) => {
