@@ -1,4 +1,3 @@
-import { Subject } from "rxjs"
 import { useFileHashCalculator, genHashType } from "./hash"
 import { useLargeFileUploader, FileChunk, FileChunkDesc } from "./upload"
 
@@ -32,6 +31,8 @@ export interface verifyUploadFileParamas {
 // stop runner
 export type RequestInstance = { abort(): void; }
 
+export type StateCallback = (state: UploadFileServiceShareState) => void
+
 export function useLargeFileHashAndUploader(
   uploadAPI: (data: UploadFileParams) => Promise<any>,
   mergeAPI: (data: FileMergeParams) => Promise<any>,
@@ -50,11 +51,21 @@ export function useLargeFileHashAndUploader(
     canceled: false,
     fileChunksDesc: [],
   }
-  const event = new Subject<UploadFileServiceShareState>()
+  let eventCb: StateCallback = () => {}
+
+  const _emit = (state: UploadFileServiceShareState) => {
+    eventCb(state)
+  }
+
+  const subscribe = (cb: StateCallback) => {
+    eventCb = cb
+  }
+
+  // const event = new Subject<UploadFileServiceShareState>()
   const uploadHelper = useLargeFileUploader(
     (fileChunksDesc) => {
       shareState.fileChunksDesc = fileChunksDesc
-      event.next({ ...shareState })
+      _emit({ ...shareState })
     },
     maxConnection,
     tryRequestTimes
@@ -63,7 +74,7 @@ export function useLargeFileHashAndUploader(
     (hashPercent) => {
     if (!shareState.canceled) {
       shareState.hashPercent = hashPercent
-      event.next({ ...shareState })
+      _emit({ ...shareState })
     }
     },
     50 * 1024 * 1024, // 50M
@@ -81,7 +92,7 @@ export function useLargeFileHashAndUploader(
     state.step === 1 && hashHelper.stop() // hash calc and stop hash calculator
     state.step === 3 && uploadHelper.stop() // file upload and stop uploader
     state.step = 0
-    event.next({ ...shareState })
+    _emit({ ...shareState })
     console.log("uploader stop")
   }
 
@@ -91,7 +102,7 @@ export function useLargeFileHashAndUploader(
     shareState.canceled = false
     shareState.fileChunksDesc = []
     shareState.hashPercent = 0
-    event.next({ ...shareState })
+    _emit({ ...shareState })
     console.log("uploader reset")
   }
 
@@ -122,7 +133,7 @@ export function useLargeFileHashAndUploader(
         endIdx: state.file.size,
         status: "uploaded"
       }]
-      event.next({ ...shareState })
+      _emit({ ...shareState })
       return reset()
     }
     state.step = 3
@@ -138,7 +149,7 @@ export function useLargeFileHashAndUploader(
   }
 
   return {
-    event,
+    subscribe,
 
     reset,
     upload,

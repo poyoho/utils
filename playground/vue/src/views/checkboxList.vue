@@ -71,7 +71,7 @@ export default defineComponent({
       () => ({ list: "list", total: "total"})
     )
 
-    selectService.event.subscribe(state => {
+    selectService.subscribe(state => {
       selectState.value = state
     })
 

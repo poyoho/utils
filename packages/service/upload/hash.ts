@@ -1,6 +1,8 @@
-import { Subscriber } from "rxjs"
 import { useWorker } from "@poyoho/shared-service/worker"
 export type genHashType = "worker" | "wasm"
+
+type StateCallback = (hash: string) => void;
+
 
 export function useFileHashCalculator(
   cb: (percent: number) => void = () => {},
@@ -9,7 +11,15 @@ export function useFileHashCalculator(
   CALC_CHUNK = 1024 * 1024, // 1M
 ) {
   let worker: Worker
-  let ob: Subscriber<string>
+  let eventCb: StateCallback = () => {}
+
+  function _emit (state: string) {
+    eventCb(state)
+  }
+
+  function subscribe (cb: StateCallback) {
+    eventCb = cb
+  }
 
   // worker string function
   function _worker() {
@@ -92,7 +102,7 @@ export function useFileHashCalculator(
         `self.importScripts("${sparkSite}");\n`,
       ])
       worker = _worker
-      ob = new Subscriber((value) => {
+      subscribe((value) => {
         resolve(value)
       })
       worker.postMessage({ file })
@@ -119,7 +129,7 @@ export function useFileHashCalculator(
         (script) => script.replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()")
       )
       worker = _worker
-      ob = new Subscriber((value) => {
+      subscribe((value) => {
         resolve(value)
       })
       worker.onmessage = (e) => {
@@ -158,7 +168,7 @@ export function useFileHashCalculator(
       // stop worker
       worker?.terminate()
       // promise return
-      ob?.next("")
+      _emit("")
     }
   }
 }

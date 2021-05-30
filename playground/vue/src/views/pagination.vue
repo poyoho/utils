@@ -69,7 +69,7 @@ export default defineComponent({
       () => ({ list: "list", total: "total"})
     )
 
-    selectService.event.subscribe(state => {
+    selectService.subscribe(state => {
       selectState.value = state
       nextTick(() => {
         selectState.value.list.forEach(row => tableRef.value?.toggleRowSelection(row, row.$selected))

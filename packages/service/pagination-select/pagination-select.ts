@@ -1,4 +1,3 @@
-import { Subject } from 'rxjs'
 import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "@poyoho/shared-util/diff"
 export interface PaginationParams {
   page: number
@@ -19,6 +18,7 @@ export type SelectableRow<State> = State & { $selected: boolean }
 type equalFn<State> = (o?: State, n?: State) => boolean | string | number
 type fetchFn<QueryParams> = (query: QueryParams) => Promise<Record<string, any>>
 type fetchDataKeyFn = () => { list: string, total: string }
+type StateCallback<State> = (state: PaginationSelectState<SelectableRow<State>>) => void;
 
 export function usePaginationSelect<QueryParams extends PaginationParams, State>(
   // diff row
@@ -38,7 +38,6 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     pageSelectCount: 0,
     total: 0,
   } as PaginationSelectState<SelectableRow<State>>
-  const event = new Subject<PaginationSelectState<SelectableRow<State>>>()
 
   const cache = {
     rows: [] as SelectableRow<State>[], // cache rows when request of local data
@@ -50,6 +49,16 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     selectRows = new diffListByKey<SelectableRow<State>>(key)
   } catch (e) {
     selectRows = new diffListByBoolean<SelectableRow<State>>(equal as FunctionEqual<State>)
+  }
+
+  let eventCb: StateCallback<State> = () => {}
+
+  function _emit (state: PaginationSelectState<SelectableRow<State>>) {
+    eventCb(state)
+  }
+
+  function subscribe (cb: StateCallback<State>) {
+    eventCb = cb
   }
 
   const _requestData = async (params: QueryParams, useLocal: boolean) => {
@@ -98,7 +107,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
         el.$selected = state.selectAll ? true : (selectRows.has(el) !== undefined)
         if (el.$selected) state.pageSelectCount++
       })
-      event.next({
+      _emit({
         ...state,
         selectCount: state.selectAll ? state.total : selectRows.length(),
       })
@@ -151,7 +160,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     noRefreshed = false
     if (done) {
       // console.log('SelectMergeRow', rows, selectRows, currentRow)
-      event.next({
+      _emit({
         ...state,
         selectCount: state.selectAll ? state.total : selectRows.length(),
       })
@@ -163,7 +172,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     selectRows.clear()
     state.selectAll = true
     noRefreshed = false
-    event.next({
+    _emit({
       ...state,
       list: state.list.map(ele => (ele.$selected = true) && ele),
       selectCount: state.total,
@@ -176,7 +185,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     state.selectAll = false
     noRefreshed = false
     state.pageSelectCount = 0
-    event.next({
+    _emit({
       ...state,
       list: state.list.map(ele => (ele.$selected = false) || ele),
       selectCount: 0
@@ -198,7 +207,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
   }
 
   return {
-    event,
+    subscribe,
 
     selectData,
     refresh,

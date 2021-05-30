@@ -113,7 +113,7 @@ export default defineComponent({
       verifyAPI,
     )
 
-    uploadService.event.subscribe(state => {
+    uploadService.subscribe(state => {
       uploadState.hashPercent = Math.ceil(state.hashPercent)
       uploadState.canceled = state.canceled
       state.fileChunksDesc.forEach(chunk => {

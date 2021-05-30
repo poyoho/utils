@@ -30,7 +30,6 @@ function resize(offset: number, start: number) {
   return offset
 }
 
-//
 function *dynamicCutFileChunks(
   file: File,
   fileChunks: FileChunk[],
