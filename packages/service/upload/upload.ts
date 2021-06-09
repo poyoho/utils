@@ -24,8 +24,12 @@ export type UploadHelper = {
 function resize(offset: number, start: number) {
   const time = Number(((new Date().getTime() - start) / 1000).toFixed(4))
   let rate = time / 5
-  if(rate < 0.5) rate = 0.5
-  else if(rate > 2) rate = 2
+  if(rate < 0.5) {
+    rate = 0.5
+  }
+  else if(rate > 2) {
+    rate = 2
+  }
   offset = Math.ceil(offset / rate)
   return offset
 }
@@ -37,7 +41,9 @@ function *dynamicCutFileChunks(
 ): Iterator<FileChunk, void, number> {
   for(let idx = 0; idx < fileChunks.length; idx++) {
     const fileChunk = fileChunks[idx]
-    if (fileChunk.status === "pass") continue
+    if (fileChunk.status === "pass") {
+      continue
+    }
     const size = fileChunk.endIdx - fileChunk.startIdx
     console.log("🚀", fileChunk.startIdx, fileChunk.endIdx)
     if (size > fileOffset) {
@@ -66,7 +72,7 @@ function *dynamicCutFileChunks(
 export function useLargeFileUploader(
   cb: (fileChunkDesc: FileChunkDesc[]) => void = () => {},
   maxConnection = 4,
-  tryRequestTimes = 3,
+  tryRequestTimes = 3
 ) {
   let canceled = false
 
@@ -107,7 +113,7 @@ export function useLargeFileUploader(
   async function requestResizeChunk (
     chunk: FileChunk,
     offset: number,
-    uploadAPI: UploadAPI,
+    uploadAPI: UploadAPI
   ) {
     let resp: any
     let errorTimes = tryRequestTimes
@@ -124,7 +130,7 @@ export function useLargeFileUploader(
         chunk.status = "ready"
         cb([chunk])
         errorTimes--
-        console.log("❌ error retry", tryRequestTimes - errorTimes);
+        console.log("❌ error retry", tryRequestTimes - errorTimes)
       }
     }
     if (chunk.status === "ready") {
@@ -139,7 +145,7 @@ export function useLargeFileUploader(
   function _requestWithConcurrent (
     chunkItor: Iterator<FileChunk, void, number>,
     fileOffset: number,
-    uploadAPI: UploadAPI,
+    uploadAPI: UploadAPI
   ) {
     let max = maxConnection
     return new Promise((resolve) => {
@@ -157,7 +163,7 @@ export function useLargeFileUploader(
           return
         }
         const chunk = chunkItorResult.value as FileChunk
-        console.log("🧶chunk: ", chunk);
+        console.log("🧶chunk: ", chunk)
         requestResizeChunk(chunk, fileOffset, uploadAPI)
           .then(res => {
             fileOffset = res.fileOffset
@@ -179,8 +185,7 @@ export function useLargeFileUploader(
     const fileOffset = 10 * 1024 * 1024 // file chunks start 10M start
     const fileChunks = _filterUploadedFileChunks(file, uploadedFileList)
     const fileChunksIteror = dynamicCutFileChunks(file, fileChunks, fileOffset)
-    const res = await _requestWithConcurrent(fileChunksIteror, fileOffset, uploadAPI)
-    return res
+    return await _requestWithConcurrent(fileChunksIteror, fileOffset, uploadAPI)
   }
 
   return {
@@ -190,7 +195,7 @@ export function useLargeFileUploader(
     async upload(
       file: File,
       uploadedFileList: FileChunkDesc[],
-      uploadAPI: UploadAPI,
+      uploadAPI: UploadAPI
     ) {
       await _slowStart(file, uploadedFileList, uploadAPI)
       canceled = false

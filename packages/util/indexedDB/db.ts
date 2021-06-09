@@ -1,4 +1,4 @@
-import TableHelper from "./table";
+import TableHelper from "./table"
 
 interface TableColumn extends IDBIndexParameters {
   name: string
@@ -13,23 +13,25 @@ export default class DBHelper {
   constructor (
     private dbName = "default-db",
     dbVersion = 1,
-    onSuccess = (_: Event) => {},
-    onUpdate = (_: Event) => {},
-    onError = (_: Event) => {},
+    cb = {
+      onSuccess: (e_: Event) => {},
+      onUpdate: (e: Event) => {},
+      onError: (_: Event) => {}
+    }
   ) {
     if (!window.indexedDB) {
       throw "browser don't support indexedDB"
     }
     this.req = window.indexedDB.open(this.dbName, dbVersion)
     this.req.onerror = (e: Event) => {
-      onError(e)
+      cb.onError(e)
     }
     this.req.onsuccess = (e: Event) => {
       this.db = this.req.result
-      onSuccess(e)
+      cb.onSuccess(e)
     }
     this.req.onupgradeneeded = (e: Event) => {
-      onUpdate(e)
+      cb.onUpdate(e)
     }
   }
 

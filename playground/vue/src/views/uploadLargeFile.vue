@@ -107,11 +107,11 @@ export default defineComponent({
     const canvas = ref<HTMLCanvasElement>()
     const ctx = ref<CanvasRenderingContext2D>()
 
-    const uploadService = useLargeFileHashAndUploader(
+    const uploadService = useLargeFileHashAndUploader({
       uploadAPI,
       mergeAPI,
       verifyAPI,
-    )
+    })
 
     uploadService.subscribe(state => {
       uploadState.hashPercent = Math.ceil(state.hashPercent)

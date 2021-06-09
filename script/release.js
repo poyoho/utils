@@ -53,7 +53,9 @@ function updatePackage(pkgRoot, version) {
 
 function updateDeps(pkg, depType, version) {
   const deps = pkg[depType]
-  if (!deps) return
+  if (!deps) {
+    return
+  }
   Object.keys(deps).forEach(dep => {
     if (
       (dep.startsWith('@poyoho/shared-') &&
@@ -135,7 +137,7 @@ async function choiseTargetVersion () {
   })
 
   if (!yes) {
-    return
+    return ""
   }
   return targetVersion
 }

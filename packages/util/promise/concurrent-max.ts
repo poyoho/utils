@@ -6,8 +6,8 @@
  * @returns result of promise list
  */
 export function PromiseAllWithMax(
-  reqs: Array<() => Promise<any>>,
-  max: number,
+  reqs: Array<() => Promise<unknown>>,
+  max: number
 ) {
   return new Promise(resolve => {
     let idx = 0
