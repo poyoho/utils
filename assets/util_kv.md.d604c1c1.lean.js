@@ -1,0 +1,1 @@
+import{o as t,c as a,a as e,b as r}from"./app.82ec9553.js";const d='{"title":"kv","description":"","frontmatter":{},"relativePath":"util/kv.md","lastUpdated":1623231792277}',i={},n=e("h1",{id:"kv"},[e("a",{class:"header-anchor",href:"#kv","aria-hidden":"true"},"#"),r(" kv")],-1);i.render=function(e,r,d,i,o,s){return t(),a("div",null,[n])};export default i;export{d as __pageData};
