@@ -5,7 +5,7 @@ export abstract class diff<State> {
   abstract push(row: State): void
   abstract del(idx: index): void
   abstract value(): State[]
-  abstract has(row: State | index): index | undefined
+  abstract has(row: State | index): index | null
   abstract length(): number
   abstract clear(): void
   abstract equal(o: State, n: State): boolean
@@ -34,10 +34,9 @@ export class diffListByBoolean<State> extends diff<State> {
   has(row: State) {
     const idx = this._data.findIndex(el => this._equal(el, row))
     if (idx === -1) {
-      return undefined
-    } else {
-      return idx
+      return null
     }
+    return idx
   }
 
   length() {
@@ -84,9 +83,8 @@ export class diffListByKey<State> extends diff<State> {
     const v = this._data[k]
     if (v) {
       return k
-    } else {
-      return undefined
     }
+    return null
   }
 
   length() {

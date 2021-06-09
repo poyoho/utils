@@ -1,4 +1,4 @@
-import { diffListByBoolean, diffListByKey, diff, FunctionEqual } from "@poyoho/shared-util/diff"
+import { diff, diffListByBoolean, diffListByKey, FunctionEqual } from "@poyoho/shared-util/diff"
 export interface PaginationParams {
   page: number
   limit: number
@@ -61,7 +61,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     eventCb = cb
   }
 
-  const _requestData = async (params: QueryParams, useLocal: boolean) => {
+  const _requestData = (params: QueryParams, useLocal: boolean) => {
     if (cache.useLocal !== useLocal) {
       if (useLocal && !state.selectAll) {
         cache.rows = selectRows.value()
@@ -72,15 +72,15 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     }
     if (useLocal && !state.selectAll) {
       return _localData(params)
-    } else {
-      return fetchData(params).then(res => {
-        const key = useFetchDataKey()
-        return {
-          total: res[key.total],
-          list: res[key.list]
-        }
-      })
     }
+    return fetchData(params).then(res => {
+      const key = useFetchDataKey()
+      return {
+        total: res[key.total],
+        list: res[key.list]
+      }
+    })
+
   }
 
   const _localData = (query: QueryParams): Promise<Record<string, any>> => {
@@ -105,7 +105,9 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
       // dafa format
       state.list.forEach(el => {
         el.$selected = state.selectAll ? true : (selectRows.has(el) !== undefined)
-        if (el.$selected) state.pageSelectCount++
+        if (el.$selected) {
+          state.pageSelectCount++
+        }
       })
       _emit({
         ...state,
@@ -133,29 +135,27 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
         selectRows.push(currentRow)
         state.pageSelectCount++
       }
-    } else {
-      if (userSelectRows.length === state.list.length) { // select all
-        done = true
-        state.pageSelectCount = state.list.length
-        state.list.forEach(row => {
-          row.$selected = true
-          const idx = selectRows.has(row)
-          if (idx === undefined) {
-            selectRows.push(row)
-          }
-        })
-        state.selectCount = state.list.length
-      } else if (userSelectRows.length === 0 && !noRefreshed) { // select cancel
-        done = true
-        state.pageSelectCount = 0
-        state.list.forEach(row => {
-          row.$selected = false
-          const idx = selectRows.has(row)
-          if (idx !== undefined) {
-            selectRows.del(idx)
-          }
-        })
-      }
+    } else if (userSelectRows.length === state.list.length) { // select all
+      done = true
+      state.pageSelectCount = state.list.length
+      state.list.forEach(row => {
+        row.$selected = true
+        const idx = selectRows.has(row)
+        if (idx === undefined) {
+          selectRows.push(row)
+        }
+      })
+      state.selectCount = state.list.length
+    } else if (userSelectRows.length === 0 && !noRefreshed) { // select cancel
+      done = true
+      state.pageSelectCount = 0
+      state.list.forEach(row => {
+        row.$selected = false
+        const idx = selectRows.has(row)
+        if (idx !== undefined) {
+          selectRows.del(idx)
+        }
+      })
     }
     noRefreshed = false
     if (done) {
@@ -192,7 +192,7 @@ export function usePaginationSelect<QueryParams extends PaginationParams, State>
     })
   }
 
-    // select page all / cancel
+  // select page all / cancel
   const togglePageSelect = (check?: boolean) => {
     noRefreshed = false
     if (

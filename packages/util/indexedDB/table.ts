@@ -15,9 +15,9 @@ export default class TableHelper<Row> {
 
   get (key: IDBValidKey | IDBKeyRange): Promise<SelectResult<Row>> {
     return new Promise((resolve, reject) => {
-      let transaction = this.db.transaction([this.tableName])
-      let objectStore = transaction.objectStore(this.tableName)
-      let request = objectStore.get(key)
+      const transaction = this.db.transaction([this.tableName])
+      const objectStore = transaction.objectStore(this.tableName)
+      const request = objectStore.get(key)
 
       request.onerror = (event: Event) => {
         reject({ status: 500, event })
@@ -40,10 +40,10 @@ export default class TableHelper<Row> {
 
   getAll (): Promise<SelectResult<Row[]>> {
     return new Promise((reslove, reject) => {
-      let objectStore = this.db.transaction(this.tableName).objectStore(this.tableName)
-      let result: Row[] = []
+      const objectStore = this.db.transaction(this.tableName).objectStore(this.tableName)
+      const result: Row[] = []
       objectStore.openCursor().onsuccess = function (event: Event) {
-        let cursor = (event.target as any).result
+        const cursor = (event.target as any).result
         if (cursor) {
           result.push(cursor.value)
           cursor.continue()
@@ -60,7 +60,7 @@ export default class TableHelper<Row> {
 
   add (row: Row, ex: number): Promise<ActionResult> {
     return new Promise((reslove, reject) => {
-      let request = this.db.transaction([this.tableName], 'readwrite')
+      const request = this.db.transaction([this.tableName], 'readwrite')
         .objectStore(this.tableName)
         .add(Object.assign(row, ex ? { ex: Date.now() + ex } : {}))
 
@@ -76,7 +76,7 @@ export default class TableHelper<Row> {
 
   update (row: Row): Promise<ActionResult> {
     return new Promise((reslove, reject) => {
-      let request = this.db.transaction([this.tableName], 'readwrite')
+      const request = this.db.transaction([this.tableName], 'readwrite')
         .objectStore(this.tableName)
         .put(row)
 
@@ -92,7 +92,7 @@ export default class TableHelper<Row> {
 
   del (key: IDBValidKey | IDBKeyRange): Promise<ActionResult> {
     return new Promise((resolve, reject) => {
-      let request = this.db.transaction([this.tableName], 'readwrite')
+      const request = this.db.transaction([this.tableName], 'readwrite')
         .objectStore(this.tableName)
         .delete(key)
 
@@ -108,7 +108,7 @@ export default class TableHelper<Row> {
 
   clear (): Promise<ActionResult> {
     return new Promise((resolve, reject) => {
-      let request = this.db.transaction([this.tableName], 'readwrite')
+      const request = this.db.transaction([this.tableName], 'readwrite')
         .objectStore(this.tableName)
         .clear()
 

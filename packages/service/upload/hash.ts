@@ -1,14 +1,21 @@
-import { useWorker, useWASMWorker } from "@poyoho/shared-util/worker"
+import { useWASMWorker,useWorker } from "@poyoho/shared-util/worker"
 export type genHashType = "worker" | "wasm"
 
-type StateCallback = (hash: string) => void;
+type StateCallback = (hash: string) => void
 
+interface Options {
+  FILE_OFFSET?: number
+  CHUNK_OFFSET?: number
+  CALC_CHUNK?: number
+}
 
 export function useFileHashCalculator(
   cb: (percent: number) => void = () => {},
-  FILE_OFFSET = 50 * 1024 * 1024, // 50M
-  CHUNK_OFFSET = 10 * 1024 * 1024, // 5M
-  CALC_CHUNK = 1024 * 1024, // 1M
+  opts: Options = {
+    FILE_OFFSET: 50 * 1024 * 1024, // 50M
+    CHUNK_OFFSET: 10 * 1024 * 1024, // 5M
+    CALC_CHUNK: 1024 * 1024 // 1M
+  }
 ) {
   let worker: Worker
   let eventCb: StateCallback = () => {}
@@ -56,8 +63,9 @@ export function useFileHashCalculator(
 
     this.onmessage = async (e) => {
       const { file } = e.data
-      const spark = new this.SparkMD5.ArrayBuffer();
+      const spark = new this.SparkMD5.ArrayBuffer()
       const fileChunksIteror = bloomFilter(file)
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const fileChunk = await fileChunksIteror.next()
         if (fileChunk.done) { break }
@@ -84,12 +92,12 @@ export function useFileHashCalculator(
       const sparkSite = new URL("../third/spark-md5.min.js", import.meta.url)
       const _worker = useWorker(
         [
-        `self.importScripts("${sparkSite}");\n`,
+          `self.importScripts("${sparkSite}");\n`,
         ],
         _workerScript.toString()
-          .replace("this.FILE_OFFSET", String(FILE_OFFSET))
-          .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
-          .replace("this.CALC_CHUNK", String(CALC_CHUNK)),
+          .replace("this.FILE_OFFSET", String(opts.FILE_OFFSET))
+          .replace("this.CHUNK_OFFSET", String(opts.CHUNK_OFFSET))
+          .replace("this.CALC_CHUNK", String(opts.CALC_CHUNK))
       )
       worker = _worker
       subscribe((value) => {
@@ -98,7 +106,7 @@ export function useFileHashCalculator(
       worker.postMessage({ file })
       worker.onmessage = (e) => {
         if (e.data.percent === 100) {
-          console.log(e.data.hash);
+          console.log(e.data.hash)
           resolve(e.data.hash)
         }
         cb(e.data.percent)
@@ -116,11 +124,11 @@ export function useFileHashCalculator(
           `self.importScripts("${sparkSite}");\n`,
         ],
         _workerScript.toString()
-          .replace("this.FILE_OFFSET", String(FILE_OFFSET))
-          .replace("this.CHUNK_OFFSET", String(CHUNK_OFFSET))
-          .replace("this.CALC_CHUNK", String(CALC_CHUNK))
+          .replace("this.FILE_OFFSET", String(opts.FILE_OFFSET))
+          .replace("this.CHUNK_OFFSET", String(opts.CHUNK_OFFSET))
+          .replace("this.CALC_CHUNK", String(opts.CALC_CHUNK))
           .replace("new this.SparkMD5.ArrayBuffer()", "wasm_bindgen.HashHelper.new()"),
-        wasmSite,
+        wasmSite
       )
       worker = _worker
       subscribe((value) => {
@@ -133,7 +141,7 @@ export function useFileHashCalculator(
             break
           case "percent":
             if (e.data.percent === 100) {
-              console.log(e.data.hash);
+              console.log(e.data.hash)
               resolve(e.data.hash)
             }
             cb(e.data.percent)
@@ -146,16 +154,18 @@ export function useFileHashCalculator(
   return {
     async genHash (
       type: genHashType,
-      file: File,
+      file: File
     ) {
       let hash: string
       switch(type) {
         case "worker":
           hash = await genHashByWorker(file)
+          break
         case "wasm":
           hash = await genHashByASM(file)
+          break
       }
-      console.log("hash helper exit");
+      console.log("hash helper exit")
       return hash
     },
     stop () {

@@ -1,5 +1,5 @@
 export * from "./diff"
-export * from "./promise"
 export * from "./indexedDB"
 export * from "./kv"
+export * from "./promise"
 export * from "./worker"

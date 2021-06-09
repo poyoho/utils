@@ -3,22 +3,33 @@ export { CacheStatus } from "./base"
 
 export function LocalStorageHelper(preId: string, timeSign: string) {
   return new BaseCacher(
-    localStorage.setItem,
-    localStorage.getItem,
-    localStorage.removeItem,
-    localStorage.clear,
-    preId,
-    timeSign
+    {
+      setItem: localStorage.setItem,
+      getItem: localStorage.getItem,
+      delItem: localStorage.removeItem,
+      clearItem: localStorage.clear,
+    },
+    {
+      preId,
+      timeSign,
+      ex: 1000 * 60 * 60 * 24 * 31
+    }
+
   )
 }
 
 export function SessionStorageHelper(preId: string, timeSign: string) {
   return new BaseCacher(
-    sessionStorage.setItem,
-    sessionStorage.getItem,
-    sessionStorage.removeItem,
-    sessionStorage.clear,
-    preId,
-    timeSign
+    {
+      setItem: sessionStorage.setItem,
+      getItem: sessionStorage.getItem,
+      delItem: sessionStorage.removeItem,
+      clearItem: sessionStorage.clear,
+    },
+    {
+      preId,
+      timeSign,
+      ex: 1000 * 60 * 60 * 24 * 31
+    }
   )
 }

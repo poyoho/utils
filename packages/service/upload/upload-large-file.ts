@@ -1,5 +1,5 @@
-import { useFileHashCalculator, genHashType } from "./hash"
-import { useLargeFileUploader, FileChunk, FileChunkDesc } from "./upload"
+import { genHashType,useFileHashCalculator } from "./hash"
+import { FileChunk, FileChunkDesc,useLargeFileUploader } from "./upload"
 
 // service save state
 export interface UploadLargeFileState {
@@ -34,12 +34,20 @@ export type RequestInstance = { abort(): void; }
 export type StateCallback = (state: UploadFileServiceShareState) => void
 
 export function useLargeFileHashAndUploader(
-  uploadAPI: (data: UploadFileParams) => Promise<any>,
-  mergeAPI: (data: FileMergeParams) => Promise<any>,
-  verifyAPI: (data: verifyUploadFileParamas) => Promise<{ shouldUpload: boolean, uploadedList: FileChunkDesc[] }>,
-  genHashType: genHashType = "wasm",
-  maxConnection = 4,
-  tryRequestTimes = 3,
+  api: {
+    uploadAPI: (data: UploadFileParams) => Promise<any>,
+    mergeAPI: (data: FileMergeParams) => Promise<any>,
+    verifyAPI: (data: verifyUploadFileParamas) => Promise<{ shouldUpload: boolean, uploadedList: FileChunkDesc[] }>,
+  },
+  opts: {
+    genHashType: genHashType
+    maxConnection: number
+    tryRequestTimes: number
+  } = {
+    genHashType: "wasm",
+    maxConnection: 4,
+    tryRequestTimes: 3
+  }
 ) {
   const state = {
     file: null,
@@ -67,26 +75,30 @@ export function useLargeFileHashAndUploader(
       shareState.fileChunksDesc = fileChunksDesc
       _emit({ ...shareState })
     },
-    maxConnection,
-    tryRequestTimes
+    opts.maxConnection,
+    opts.tryRequestTimes
   )
   const hashHelper = useFileHashCalculator(
     (hashPercent) => {
-    if (!shareState.canceled) {
-      shareState.hashPercent = hashPercent
-      _emit({ ...shareState })
-    }
+      if (!shareState.canceled) {
+        shareState.hashPercent = hashPercent
+        _emit({ ...shareState })
+      }
     },
-    50 * 1024 * 1024, // 50M
-    10 * 1024 * 1024, // 5M
-    1024 * 1024, // 1M
+    {
+      FILE_OFFSET: 50 * 1024 * 1024, // 50M
+      CHUNK_OFFSET: 10 * 1024 * 1024, // 5M
+      CALC_CHUNK: 1024 * 1024 // 1M
+    }
   )
 
   const stop = () => {
     if (
       shareState.canceled
       || !state.isUploading
-    ) return
+    ) {
+      return
+    }
     shareState.canceled = true
     shareState.fileChunksDesc = []
     state.step === 1 && hashHelper.stop() // hash calc and stop hash calculator
@@ -112,21 +124,32 @@ export function useLargeFileHashAndUploader(
       state.file?.size === 0
       || state.isUploading
       || shareState.canceled
-    ) return
+    ) {
+      return
+    }
     console.log("upload")
     shareState.hashPercent = 0
     state.isUploading = true
     state.step = 0
-    if (shareState.canceled) return reset()
+    if (shareState.canceled) {
+      reset()
+      return
+    }
     state.step = 1
-    const filehash = await hashHelper.genHash(genHashType, state.file)
-    if (shareState.canceled) return reset()
+    const filehash = await hashHelper.genHash(opts.genHashType, state.file)
+    if (shareState.canceled) {
+      reset()
+      return
+    }
     state.step = 2
-    const { shouldUpload, uploadedList } = await verifyAPI({
+    const { shouldUpload, uploadedList } = await api.verifyAPI({
       filename: state.file.name,
       filehash,
     })
-    if (shareState.canceled) return reset()
+    if (shareState.canceled) {
+      reset()
+      return
+    }
     if (!shouldUpload) {
       shareState.fileChunksDesc = [{
         startIdx: 0,
@@ -134,18 +157,22 @@ export function useLargeFileHashAndUploader(
         status: "uploaded"
       }]
       _emit({ ...shareState })
-      return reset()
+      reset()
+      return
     }
     state.step = 3
     await uploadHelper.upload(
       state.file,
       uploadedList,
-      (formData: FileChunk) => uploadAPI({ ...formData, filehash }),
+      (formData: FileChunk) => api.uploadAPI({ ...formData, filehash })
     )
-    if (shareState.canceled) return reset()
+    if (shareState.canceled) {
+      reset()
+      return
+    }
     state.step = 4
-    await mergeAPI({ filename: state.file.name, filehash })
-    return reset()
+    await api.mergeAPI({ filename: state.file.name, filehash })
+    reset()
   }
 
   return {

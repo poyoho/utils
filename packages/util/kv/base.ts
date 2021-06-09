@@ -7,35 +7,43 @@ export enum CacheStatus {
 
 export default class BaseCacher {
   constructor(
-    private setItem: (key: string, val: string) => void,
-    private getItem: (key: string) => string,
-    private delItem: (key: string) => void,
-    private clearItem: () => void,
-    private preId: string,
-    private timeSign: string,
-    private ex = 1000 * 60 * 60 * 24 * 31,
+    private api: {
+      setItem: (key: string, val: string) => void,
+      getItem: (key: string) => string,
+      delItem: (key: string) => void,
+      clearItem: () => void,
+    },
+    private opts: {
+      preId: string
+      timeSign: string
+      ex: number
+    } = {
+      preId: "",
+      timeSign: "-",
+      ex: 1000 * 60 * 60 * 24 * 31
+    }
   ) {}
 
   private key (key: string) {
-    return this.preId + key
+    return this.opts.preId + key
   }
 
   clear() {
-    this.clearItem()
+    this.api.clearItem()
   }
 
   get (key: string) {
     let status = CacheStatus.SUCCESS
     key = this.key(key)
-    let val = this.getItem(key)
+    let val = this.api.getItem(key)
     if (val) {
-      const [time, _val] = val.split(this.timeSign)
+      const [time, _val] = val.split(this.opts.timeSign)
       if (+time > new Date().getTime() || +time === 0) {
         val = _val
       } else {
         val = null
         status = CacheStatus.TIMEOUT
-        this.delItem(key)
+        this.api.delItem(key)
       }
     } else {
       val = null
@@ -50,19 +58,19 @@ export default class BaseCacher {
   set (key: string, val: string, time?: number) {
     let status = CacheStatus.SUCCESS
     key = this.key(key)
-    time = new Date(time).getTime() || new Date().getTime() + this.ex
+    time = new Date(time).getTime() || new Date().getTime() + this.opts.ex
     try {
-      this.setItem(key, time + this.timeSign + val);
+      this.api.setItem(key, time + this.opts.timeSign + val)
     } catch(e) {
-      status = CacheStatus.OVERFLOW;
+      status = CacheStatus.OVERFLOW
     }
     return status
   }
 
   del (key: string) {
-    let status = CacheStatus.SUCCESS
+    const status = CacheStatus.SUCCESS
     key = this.key(key)
-    this.delItem(key)
+    this.api.delItem(key)
     return status
   }
 }

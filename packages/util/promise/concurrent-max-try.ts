@@ -8,7 +8,7 @@ import { PromiseAllWithMax } from "./concurrent-max"
  * @returns result of promise list
 */
 export function PromiseTryAllWithMax(
-  reqs: Array<() => Promise<any>>,
+  reqs: Array<() => Promise<unknown>>,
   max: number,
   errorCount: number
 ) {
