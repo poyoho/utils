@@ -3,7 +3,7 @@ const chalk = require("chalk")
 const rollup = require("rollup")
 const typescript = require("rollup-plugin-typescript2")
 const { terser  } = require("rollup-plugin-terser")
-const dts = require("rollup-plugin-dts")
+// const dts = require("rollup-plugin-dts")
 const esbuild = require("rollup-plugin-esbuild")
 const { importMetaAssets } = require("@web/rollup-plugin-import-meta-assets")
 const fs = require("fs-extra")
@@ -14,7 +14,7 @@ __dirname = path.join(__dirname, "..")
 async function build(pkgPath, subPath) {
   const pkgs = require(path.resolve(__dirname, `packages/${pkgPath}/package.json`)).peerDependencies || {}
   const deps = Object.keys(pkgs)
-  console.log(path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`));
+  console.log(path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`))
   const esm = await rollup.rollup({
     input: path.resolve(__dirname, `packages/${pkgPath}/${subPath}/index.ts`),
     plugins: [
@@ -113,7 +113,6 @@ function main() {
   const baseBlackList = ["index.ts", "package.json", "dist"]
   packaging("service", [...baseBlackList, "third"])
   packaging("util", baseBlackList)
-  packaging("cache", baseBlackList)
 }
 
 main()

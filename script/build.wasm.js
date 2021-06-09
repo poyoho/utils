@@ -29,7 +29,7 @@ async function buildWASMPackage(name, target) {
     )
     console.log(chalk.green('Successfully build wasm'))
   } catch (e) {
-    throw e
+    console.log(e)
   }
 }
 
@@ -41,9 +41,9 @@ async function copyWASMPackage(name, formatJsName) {
     }
     await fs.copy(
       path.join(__dirname, `../wasm/${name}/pkg/`, pkgname),
-      path.join(__dirname, `../packages/service/third/wasm/${name}`, outName),
+      path.join(__dirname, `../packages/service/third/wasm/${name}`, outName)
     )
-    console.log(chalk.bgBlue("finish"), chalk.gray(outName));
+    console.log(chalk.bgBlue("finish"), chalk.gray(outName))
   }
   const copyTask = fs.readdirSync(path.resolve(__dirname, `../wasm/${name}/pkg/`))
     .filter(p => RegExp(`${name}.*`).test(p))

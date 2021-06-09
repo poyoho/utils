@@ -11,7 +11,12 @@
     "lint-fix": "eslint --fix ./packages --ext .vue,.js,.ts,.tsx",
     "build": "node script/build.esm.js",
     "release": "node script/release.js",
-    "build:wasm": "node script/build.wasm.js"
+    "build:wasm": "node script/build.wasm.js",
+    "doc:dev": "vitepress dev docs",
+    "doc:build": "vitepress build docs",
+    "doc:serve": "vitepress serve docs",
+    "predeploy": "yarn build",
+    "deploy": "gh-pages -d docs/.vitepress/dist"
   },
   "husky": {
     "hooks": {
@@ -20,7 +25,7 @@
     }
   },
   "lint-staged": {
-    "*.{ts,vue,tsx,jsx}": "eslint --fix"
+    "*.{ts,vue,tsx,jsx,js}": "eslint --fix"
   },
   "publishConfig": {
     "access": "public"
@@ -28,17 +33,17 @@
   "license": "ISC",
   "devDependencies": {
     "@commitlint/config-conventional": "^11.0.0",
+    "@poyoho/eslint-plugin-config": "^0.0.2",
     "@tailwindcss/postcss7-compat": "^2.1.2",
     "@typescript-eslint/eslint-plugin": "^3.10.1",
-    "@typescript-eslint/parser": "^3.10.1",
+    "@typescript-eslint/parser": "^4.26.1",
     "@web/rollup-plugin-import-meta-assets": "^1.0.6",
     "autoprefixer": "^9.8.6",
     "chalk": "^4.1.0",
     "enquirer": "^2.3.6",
     "esbuild": "^0.11.20",
-    "eslint": "^7.7.0",
-    "eslint-plugin-vue": "^7.0.0-beta.0",
     "fs-extra": "^10.0.0",
+    "gh-pages": "^3.1.0",
     "lerna": "^3.22.1",
     "minimist": "^1.2.5",
     "postcss": "^7.0.35",
@@ -50,7 +55,8 @@
     "rollup-plugin-typescript2": "^0.30.0",
     "semver": "^7.3.2",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.1.2",
-    "typescript": "^4.1.2"
+    "typescript": "^4.1.2",
+    "vitepress": "^0.13.2"
   },
   "workspaces": [
     "packages/*"

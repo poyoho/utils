@@ -1,4 +1,4 @@
-import { useWorker, useWASMWorker } from "@poyoho/shared-service/worker"
+import { useWorker, useWASMWorker } from "@poyoho/shared-util/worker"
 export type genHashType = "worker" | "wasm"
 
 type StateCallback = (hash: string) => void;
