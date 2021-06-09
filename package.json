@@ -15,7 +15,7 @@
     "doc:dev": "vitepress dev docs",
     "doc:build": "vitepress build docs",
     "doc:serve": "vitepress serve docs",
-    "predeploy": "yarn build",
+    "predeploy": "yarn doc:build",
     "deploy": "gh-pages -d docs/.vitepress/dist"
   },
   "husky": {
@@ -32,10 +32,9 @@
   },
   "license": "ISC",
   "devDependencies": {
-    "@commitlint/config-conventional": "^11.0.0",
     "@poyoho/eslint-plugin-config": "^0.0.2",
     "@tailwindcss/postcss7-compat": "^2.1.2",
-    "@typescript-eslint/eslint-plugin": "^3.10.1",
+    "@commitlint/config-conventional": "^11.0.0",
     "@typescript-eslint/parser": "^4.26.1",
     "@web/rollup-plugin-import-meta-assets": "^1.0.6",
     "autoprefixer": "^9.8.6",
@@ -56,7 +55,7 @@
     "semver": "^7.3.2",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.1.2",
     "typescript": "^4.1.2",
-    "vitepress": "^0.13.2"
+    "vitepress": "^0.14.1"
   },
   "workspaces": [
     "packages/*"

@@ -5,6 +5,6 @@ module.exports = [
   },
   {
     text: "跨页选择器",
-    link: "/service/select",
+    link: "/service/pagination-select",
   },
 ]

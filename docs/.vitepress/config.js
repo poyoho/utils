@@ -23,8 +23,8 @@ module.exports = {
     ],
 
     sidebar: {
-      "/": require("./route/service"),
       "/util": require("./route/util"),
+      "/": require("./route/service"),
     }
   }
 }
